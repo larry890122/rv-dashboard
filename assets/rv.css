@@ -24,8 +24,10 @@ body { background:#fff; font-family:"Microsoft JhengHei","PingFang TC",sans-seri
 .rv-guide span { display:flex; align-items:center; gap:7px; }
 .rv-guide i { display:inline-block; width:17px; height:8px; background:#d9e0e7; }
 .rv-guide .median-key { height:3px; background:#315d7b; }
-.rv-guide .current-key { width:9px; height:9px; border-radius:50%; background:#dc7b22; }
-.rv-guide .pct-key { background:#178995; }
+.rv-guide .range-key { width:34px; height:16px; background:none; position:relative; }
+.rv-guide .range-key::before { content:'↔'; position:absolute; inset:-5px 0 0; color:#aebbc9; font-size:28px; font-style:normal; line-height:1; text-align:center; }
+.rv-guide .current-key { width:0; height:0; background:none; border-left:6px solid transparent; border-right:6px solid transparent; border-top:10px solid #dc7b22; }
+.rv-guide .pct-key { width:13px; height:13px; background:#176f8f; }
 .rv-guide small { margin-left:auto; }
 #rv-status { font-size:13px; color:#657788; margin:12px 0; }
 .rv-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:22px; }
@@ -41,6 +43,9 @@ body { background:#fff; font-family:"Microsoft JhengHei","PingFang TC",sans-seri
 .rv-scroll svg { width:100%; display:block; height:470px; }
 .rv-scroll svg text { font-family:inherit; font-size:12px; fill:#506477; }
 .rv-scroll svg .value-label { fill:#b0580e; font-weight:700; }
+.rv-scroll svg .axis-title { fill:#536987; font-size:13px; font-weight:700; }
+.rv-scroll svg .percentile-value-label { font-size:12px; font-weight:700; }
+.rv-scroll svg .percentile-value-label.compact { font-size:10px; }
 .rv-scroll svg .sector-label { fill:#173e5a; font-weight:700; }
 .rv-point { cursor:pointer; outline:none; }
 .rv-point:hover,.rv-point:focus { stroke:#102b46; stroke-width:2; }
