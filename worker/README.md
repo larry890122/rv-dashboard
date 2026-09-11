@@ -28,3 +28,7 @@ Rollout order:
 If a full Worker deployment fails, roll back to the recorded health-only version.
 Website rollback must use a PR reverting to tag
 `rv-stable-before-upload-20260911`; never force-push `main`.
+
+The active health-only rollback target is recorded in `health-baseline.json`. Do not
+replace it with a full Worker version. Update `company_network_check` only after the
+same `/health` URL has been opened successfully from the company computer.
