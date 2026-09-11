@@ -32,3 +32,7 @@ Website rollback must use a PR reverting to tag
 The active health-only rollback target is recorded in `health-baseline.json`. Do not
 replace it with a full Worker version. Update `company_network_check` only after the
 same `/health` URL has been opened successfully from the company computer.
+
+Preview versions must set `PUBLISH_MODE=preview`. They create `preview/rv-data-*`
+branches with the `rv-data-preview` label, so the production auto-merge conditions
+cannot match. Production requires the separate `PUBLISH_MODE=production` setting.

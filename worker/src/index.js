@@ -161,9 +161,9 @@ function decodeGithubContent(value) {
   return decoder.decode(Uint8Array.from(atob(value.replace(/\s/g, '')), character => character.charCodeAt(0)));
 }
 
-async function addAutomationLabel(env, repo, number, token) {
+async function addAutomationLabel(env, repo, number, token, label) {
   const add = () => githubFetch(env, `/repos/${repo}/issues/${number}/labels`, {
-    method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({labels: ['automated-rv-data']}),
+    method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({labels: [label]}),
   }, token);
   try {
     await add();
@@ -172,7 +172,7 @@ async function addAutomationLabel(env, repo, number, token) {
     try {
       await githubFetch(env, `/repos/${repo}/labels`, {
         method: 'POST', headers: {'content-type': 'application/json'},
-        body: JSON.stringify({name: 'automated-rv-data', color: '1f6feb', description: 'Validated RV data-only update'}),
+        body: JSON.stringify({name: label, color: label === 'automated-rv-data' ? '1f6feb' : 'bf8700', description: 'Validated RV data-only update'}),
       }, token);
     } catch (createError) {
       if (createError.status !== 422) throw createError;
@@ -191,7 +191,9 @@ export async function publishSnapshot(env, data) {
   if (data.date <= currentData.date) throw new Error(`資料日期 ${data.date} 必須晚於正式站 ${currentData.date}`);
   const content = `${JSON.stringify(data, null, 2)}\n`;
   const digest = await digestText(JSON.stringify(data));
-  const branch = `automation/rv-data-${data.date}-${digest.slice(0, 12)}`;
+  const production = env.PUBLISH_MODE === 'production';
+  const label = production ? 'automated-rv-data' : 'rv-data-preview';
+  const branch = `${production ? 'automation' : 'preview'}/rv-data-${data.date}-${digest.slice(0, 12)}`;
   const branchRef = `heads/${branch}`;
   const main = await githubFetch(env, `/repos/${repo}/git/ref/heads/main`, {}, token);
   try {
@@ -213,13 +215,13 @@ export async function publishSnapshot(env, data) {
     const pr = await githubFetch(env, `/repos/${repo}/pulls`, {
       method: 'POST', headers: {'content-type': 'application/json'},
       body: JSON.stringify({
-        title: `Update RV data to ${data.date}`,
+        title: `${production ? 'Update' : '[PREVIEW] Validate'} RV data to ${data.date}`,
         head: branch,
         base: 'main',
-        body: `Automated sanitized Excel update.\n\n- Data date: ${data.date}\n- Values: ${count}/460\n- SHA-256: \`${digest}\`\n- Validation: PASS`,
+        body: `${production ? 'Automated' : 'Preview'} sanitized Excel update.\n\n- Mode: ${production ? 'production' : 'preview — never auto-merge'}\n- Data date: ${data.date}\n- Values: ${count}/460\n- SHA-256: \`${digest}\`\n- Validation: PASS`,
       }),
     }, token);
-    await addAutomationLabel(env, repo, pr.number, token);
+    await addAutomationLabel(env, repo, pr.number, token, label);
     return {id: String(pr.number), state: 'pending'};
   } catch (error) {
     try { await githubFetch(env, `/repos/${repo}/git/refs/${branchRef}`, {method: 'DELETE'}, token); } catch {}

@@ -115,6 +115,7 @@ async function githubEnv() {
   return env({
     RV_UPLOAD_ENABLED: 'true', GITHUB_APP_ID: '123', GITHUB_APP_INSTALLATION_ID: '456',
     GITHUB_APP_PRIVATE_KEY: pem, GITHUB_REPOSITORY: 'owner/repo',
+    PUBLISH_MODE: 'preview',
   });
 }
 
@@ -162,6 +163,10 @@ test('successful publish writes only sanitized rv-data and labels one PR', async
     assert.deepEqual(Object.keys(JSON.parse(update.body)).sort(), ['branch', 'content', 'message', 'sha']);
     assert.equal(calls.filter(call => call.method === 'PUT').length, 1);
     assert.equal(calls.some(call => call.url.endsWith('/issues/74/labels')), true);
+    const label = calls.find(call => call.url.endsWith('/issues/74/labels'));
+    assert.deepEqual(JSON.parse(label.body), {labels: ['rv-data-preview']});
+    const updateBody = JSON.parse(update.body);
+    assert.match(updateBody.branch, /^preview\/rv-data-/);
   } finally { globalThis.fetch = savedFetch; }
 });
 
@@ -176,12 +181,12 @@ test('GitHub update failure cleans up the automation branch', async () => {
     if (String(url).endsWith('/git/ref/heads/main')) return apiJson({object: {sha: 'main-sha'}});
     if (String(url).endsWith('/git/refs') && method === 'POST') return apiJson({ref: 'created'});
     if (String(url).includes('/contents/assets/rv-data.json') && method === 'PUT') return apiJson({message: 'boom'}, 500);
-    if (String(url).includes('/git/refs/heads/automation/') && method === 'DELETE') return apiJson({});
+    if (String(url).includes('/git/refs/heads/preview/') && method === 'DELETE') return apiJson({});
     throw new Error(`Unexpected URL ${url}`);
   };
   try {
     await assert.rejects(publishSnapshot(await githubEnv(), snapshot()), /boom/);
-    assert.equal(calls.some(([url, method]) => url.includes('/git/refs/heads/automation/') && method === 'DELETE'), true);
+    assert.equal(calls.some(([url, method]) => url.includes('/git/refs/heads/preview/') && method === 'DELETE'), true);
   } finally { globalThis.fetch = savedFetch; }
 });
 
