@@ -26,15 +26,36 @@ async function run(browser, base, width = 1440) {
       combinations++;
     }
     for(const metric of metrics) {
+      for(const option of metrics) await page.locator(`[name=metric][value="${option}"]`).setChecked(false);
       await page.locator(`[name=metric][value="${metric}"]`).check();
       const points = page.locator(`.rv-point[data-metric="${metric}"]`);
       assert.equal(await points.count(),data.sections[section][metric].length*5);
-      const point = points.first();
-      await point.focus();
-      await page.keyboard.press('Enter');
-      assert.equal(await page.locator('#rv-tooltip').isVisible(),true);
-      await page.keyboard.press('Escape');
+      assert.equal(await page.locator(`polygon.rv-range-arrow[data-metric="${metric}"][data-field="min"]`).count(),data.sections[section][metric].length);
+      assert.equal(await page.locator(`polygon.rv-range-arrow[data-metric="${metric}"][data-field="max"]`).count(),data.sections[section][metric].length);
+      assert.equal(await page.locator(`line.rv-range-line`).count(),data.sections[section][metric].length);
+      assert.equal(await page.locator(`rect.rv-median-marker[data-metric="${metric}"]`).count(),data.sections[section][metric].length);
+      assert.equal(await page.locator(`polygon.rv-current-marker[data-metric="${metric}"]`).count(),data.sections[section][metric].length);
+      assert.equal(await page.locator('.range-value-label,.current-value-label').count(),0);
+      assert.equal(await page.locator('.percentile-value-label').count(),data.sections[section][metric].length);
+      const currentPoints=(await page.locator(`polygon.rv-current-marker[data-metric="${metric}"]`).first().getAttribute('points')).trim().split(/\s+/).map(pair=>Number(pair.split(',')[0]));
+      assert.equal(currentPoints[0]+currentPoints[1],currentPoints[2]*2,'current marker is horizontally centered');
+      for(const field of ['min','max']) {
+        await page.locator(`.rv-point[data-metric="${metric}"][data-field="${field}"]`).first().focus();
+        await page.keyboard.press('Enter');
+        assert.equal(await page.locator('#rv-tooltip').isVisible(),true);
+        const row=data.sections[section][metric][0],tooltip=await page.locator('#rv-tooltip').innerText();
+        assert.match(tooltip,/2Y Min–Max/);
+        assert.ok(tooltip.includes(new Intl.NumberFormat('en-US',{maximumFractionDigits:6}).format(row.min)));
+        assert.ok(tooltip.includes(new Intl.NumberFormat('en-US',{maximumFractionDigits:6}).format(row.max)));
+        await page.keyboard.press('Escape');
+      }
     }
+    for(const option of metrics) await page.locator(`[name=metric][value="${option}"]`).setChecked(false);
+    await page.locator('[name=metric][value="Spread"]').check();
+    await page.locator('[name=metric][value="10Y"]').check();
+    assert.equal(await page.locator('.percentile-value-label').count(),data.sections[section].Spread.length*2);
+    assert.equal(await page.locator('.percentile-value-label.compact').count(),data.sections[section].Spread.length*2);
+    assert.equal(await page.locator('.range-value-label,.current-value-label').count(),0);
   }
   const peerHref = await page.getByRole('link',{name:'返回券商報告知識庫'}).getAttribute('href');
   assert.equal(peerHref,'https://larry890122.github.io/ib-knowledge-base/');
