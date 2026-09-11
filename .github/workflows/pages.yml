@@ -2,6 +2,7 @@ name: Test and deploy RV Dashboard
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
   workflow_dispatch:
@@ -34,6 +35,8 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: python3 publish.py --build-only
       - run: python3 -m unittest discover -s tests -v
+      - run: pnpm run test:worker
+      - run: pnpm run check:worker
       - run: python3 peer_status.py
       - name: Browser regression
         run: |
@@ -57,3 +60,29 @@ jobs:
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  auto-merge-rv-data:
+    if: >-
+      github.event_name == 'pull_request' &&
+      vars.RV_UPLOAD_APP_LOGIN != '' &&
+      github.actor == vars.RV_UPLOAD_APP_LOGIN &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'automation/rv-data-') &&
+      contains(github.event.pull_request.labels.*.name, 'automated-rv-data')
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Require exactly one changed data file
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr diff "$PR_URL" --name-only | python3 scripts/verify_data_only_pr.py
+      - name: Merge verified data update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --squash --delete-branch

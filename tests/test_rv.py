@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import sys
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -13,6 +14,9 @@ sys.path.insert(0, str(ROOT))
 from peer_status import validate_peer
 from rv_data import FIELDS, choose, validate
 from scripts.extract_rv import NS, cell_number, slide_values
+from scripts.extract_excel_strict import extract as extract_excel_strict
+from scripts.verify_data_only_pr import verify as verify_data_only_pr
+from tests.make_xlsx_fixtures import make_fixtures
 
 
 class RVTests(unittest.TestCase):
@@ -32,7 +36,7 @@ class RVTests(unittest.TestCase):
         ]
         self.assertEqual(len(values), 460)
         self.assertTrue(all(value is not None for value in values))
-        self.assertEqual(self.data["date"], "2026-08-05")
+        self.assertRegex(self.data["date"], r"^\d{4}-\d{2}-\d{2}$")
 
     def test_public_snapshot_identical(self):
         public_data = json.loads((self.public / "assets" / "rv-data.json").read_text(encoding="utf-8"))
@@ -40,11 +44,15 @@ class RVTests(unittest.TestCase):
 
     def test_page_and_bidirectional_navigation(self):
         page = (self.public / "index.html").read_text(encoding="utf-8")
-        self.assertIn("2026/08/05", page)
+        self.assertIn(self.data["date"].replace("-", "/"), page)
         self.assertIn("非即時行情", page)
         self.assertIn("https://larry890122.github.io/ib-knowledge-base/", page)
         self.assertEqual(page.count('name="metric"'), 4)
         self.assertEqual(page.count('name="section"'), 3)
+        self.assertIn('href="update.html"', page)
+        update_page = (self.public / "update.html").read_text(encoding="utf-8")
+        self.assertIn("四份 Excel", update_page)
+        self.assertIn('assets/update.js', update_page)
 
     def test_integration_manifest(self):
         manifest = json.loads((self.public / "integration-manifest.json").read_text(encoding="utf-8"))
@@ -59,8 +67,10 @@ class RVTests(unittest.TestCase):
             if not path.is_file() or path.suffix.lower() not in {".html", ".json", ".js", ".css", ".txt"}:
                 continue
             serialized = path.read_text(encoding="utf-8").lower()
-            for term in (".xlsx", ".xlsm", ".pptx", ".pdf", "/users/", "data-audit", "slide_locator"):
+            for term in (".xlsm", ".pptx", ".pdf", "/users/", "data-audit", "slide_locator"):
                 self.assertNotIn(term, serialized, path.relative_to(self.public))
+        leaked_files = [path for path in self.public.rglob("*") if path.suffix.lower() in {".xlsx", ".xlsm", ".pptx", ".pdf"}]
+        self.assertEqual(leaked_files, [])
 
     def test_missing_errors_and_no_cache(self):
         ns = NS["m"]
@@ -105,6 +115,33 @@ class RVTests(unittest.TestCase):
         self.assertEqual(values["current"][0], 91)
         self.assertEqual(values["pct"][0], 0.409)
         self.assertNotIn("median", values)
+
+    def test_strict_excel_extraction_and_failures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = make_fixtures(Path(directory) / "valid")
+            result = extract_excel_strict(paths)
+            self.assertEqual(result["date"], "2026-08-06")
+            self.assertTrue(all(
+                row["sources"][field] == "Excel"
+                for section in result["sections"].values()
+                for records in section.values()
+                for row in records
+                for field in FIELDS
+            ))
+            for variant, message in (("date-mismatch", "92 embedded dates"), ("missing", "invalid current"), ("order", "Min <= Median <= Max")):
+                bad = make_fixtures(Path(directory) / variant, variant)
+                with self.assertRaisesRegex(ValueError, message):
+                    extract_excel_strict(bad)
+
+    def test_automated_pr_allows_only_the_data_file(self):
+        verify_data_only_pr(["assets/rv-data.json"])
+        for changed in (
+            ["assets/rv-data.json", "assets/rv.js"],
+            ["assets/rv.js"],
+            [],
+        ):
+            with self.assertRaises(ValueError):
+                verify_data_only_pr(changed)
 
 
 if __name__ == "__main__":

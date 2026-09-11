@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.workers.dev; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>更新 RV 資料</title>
+  <link rel="stylesheet" href="assets/site.css">
+  <link rel="stylesheet" href="assets/update.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header"><div class="nav-shell"><a class="brand" href="./">RV 相對價值</a><nav class="site-nav" aria-label="主要導覽"><a href="https://larry890122.github.io/ib-knowledge-base/">券商報告知識庫</a><a href="./">RV 相對價值</a><a href="update.html" aria-current="page">更新資料</a></nav></div></header>
+  <main id="main-content" class="upload-shell">
+    <p class="upload-kicker">LOCAL EXCEL VALIDATION</p>
+    <h1>更新 RV 資料</h1>
+    <p class="upload-intro">選取四份 Excel。檔案只會在這個瀏覽器內解析；系統只傳送通過驗證的公開摘要 JSON。</p>
+
+    <section class="upload-card" aria-labelledby="files-title">
+      <div class="section-heading"><div><h2 id="files-title">1. 選取四份 Excel</h2><p>可分別選取，也可把四份檔案一起拖到下方區域。</p></div><button id="clear-files" class="button secondary" type="button">清除</button></div>
+      <div id="bulk-drop" class="bulk-drop" tabindex="0">拖放四份 Excel 到這裡</div>
+      <div class="file-grid">
+        <label class="file-slot"><strong>Spread</strong><span>2Y Percentile RV</span><input type="file" accept=".xlsx" data-metric="Spread"><output data-file-name="Spread">尚未選取</output></label>
+        <label class="file-slot"><strong>10Y</strong><span>10Y RV</span><input type="file" accept=".xlsx" data-metric="10Y"><output data-file-name="10Y">尚未選取</output></label>
+        <label class="file-slot"><strong>30Y</strong><span>30Y RV</span><input type="file" accept=".xlsx" data-metric="30Y"><output data-file-name="30Y">尚未選取</output></label>
+        <label class="file-slot"><strong>10s30s</strong><span>10s30s RV</span><input type="file" accept=".xlsx" data-metric="10s30s"><output data-file-name="10s30s">尚未選取</output></label>
+      </div>
+      <button id="validate-files" class="button primary" type="button">在本機驗證</button>
+    </section>
+
+    <section class="upload-card" aria-labelledby="result-title">
+      <h2 id="result-title">2. 驗證結果</h2>
+      <div id="validation-status" class="status neutral" role="status" aria-live="polite">等待選取四份 Excel。</div>
+      <dl id="validation-summary" class="summary" hidden><div><dt>資料日期</dt><dd id="summary-date"></dd></div><div><dt>完整數值</dt><dd id="summary-count"></dd></div><div><dt>來源</dt><dd>Excel 嚴格模式</dd></div></dl>
+    </section>
+
+    <section class="upload-card" aria-labelledby="publish-title">
+      <h2 id="publish-title">3. 發布</h2>
+      <p id="service-state">正在檢查更新服務…</p>
+      <label class="password-field">上傳密碼<input id="upload-password" type="password" autocomplete="current-password" disabled></label>
+      <div class="actions"><button id="test-service" class="button secondary" type="button">測試公司網路連線</button><button id="publish-data" class="button primary" type="button" disabled>開始更新</button></div>
+      <div id="publish-status" class="status neutral" role="status" aria-live="polite">尚未送出。</div>
+    </section>
+
+    <aside class="privacy-note"><strong>隱私保護</strong>：原始 Excel、檔名、路徑與來源雜湊不會傳送或保存。離開本頁後，瀏覽器記憶體內的解析結果會消失。</aside>
+  </main>
+  <script src="assets/update.js" defer></script>
+</body>
+</html>

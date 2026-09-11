@@ -20,7 +20,6 @@ ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "site.config.json"
 PUBLIC = ROOT / "public"
 FORBIDDEN_PUBLIC_TERMS = (
-    ".xlsx",
     ".xlsm",
     ".pptx",
     ".pdf",
@@ -56,7 +55,11 @@ def validate_public(output: Path) -> None:
         output / "assets" / "site.css",
         output / "assets" / "rv.css",
         output / "assets" / "rv.js",
+        output / "assets" / "update.css",
+        output / "assets" / "update.js",
+        output / "assets" / "upload-config.json",
         output / "assets" / "rv-data.json",
+        output / "update.html",
         output / "integration-manifest.json",
     )
     for path in required:
@@ -79,14 +82,16 @@ def build() -> tuple[Path, dict]:
     page = template.replace("{{DATA_DATE_ISO}}", snapshot["date"]).replace(
         "{{DATA_DATE_DISPLAY}}", snapshot["date"].replace("-", "/")
     )
+    update_page = (ROOT / "update.template.html").read_text(encoding="utf-8")
     temporary = Path(tempfile.mkdtemp(prefix=".rv-public-", dir=ROOT))
     backup: Path | None = None
     try:
         assets = temporary / "assets"
         assets.mkdir()
-        for name in ("site.css", "rv.css", "rv.js", "rv-data.json"):
+        for name in ("site.css", "rv.css", "rv.js", "update.css", "update.js", "upload-config.json", "rv-data.json"):
             shutil.copy2(ROOT / "assets" / name, assets / name)
         (temporary / "index.html").write_text(page, encoding="utf-8")
+        (temporary / "update.html").write_text(update_page, encoding="utf-8")
         (temporary / ".nojekyll").write_text("", encoding="utf-8")
         manifest = {
             "schema_version": 1,
