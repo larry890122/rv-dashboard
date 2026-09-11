@@ -185,21 +185,22 @@ export async function publishSnapshot(env, data) {
   const count = validateSnapshot(data);
   const repo = env.GITHUB_REPOSITORY;
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '')) throw new Error('Worker repository 設定不正確');
+  const production = env.PUBLISH_MODE === 'production';
+  const base = production ? 'main' : (env.PREVIEW_BASE_REF || 'main');
   const token = await installationToken(env);
-  const current = await githubFetch(env, `/repos/${repo}/contents/assets/rv-data.json?ref=main`, {}, token);
+  const current = await githubFetch(env, `/repos/${repo}/contents/assets/rv-data.json?ref=${encodeURIComponent(base)}`, {}, token);
   const currentData = JSON.parse(decodeGithubContent(current.content));
   if (data.date <= currentData.date) throw new Error(`資料日期 ${data.date} 必須晚於正式站 ${currentData.date}`);
   const content = `${JSON.stringify(data, null, 2)}\n`;
   const digest = await digestText(JSON.stringify(data));
-  const production = env.PUBLISH_MODE === 'production';
   const label = production ? 'automated-rv-data' : 'rv-data-preview';
   const branch = `${production ? 'automation' : 'preview'}/rv-data-${data.date}-${digest.slice(0, 12)}`;
   const branchRef = `heads/${branch}`;
-  const main = await githubFetch(env, `/repos/${repo}/git/ref/heads/main`, {}, token);
+  const baseRef = await githubFetch(env, `/repos/${repo}/git/ref/heads/${base}`, {}, token);
   try {
     await githubFetch(env, `/repos/${repo}/git/refs`, {
       method: 'POST', headers: {'content-type': 'application/json'},
-      body: JSON.stringify({ref: `refs/${branchRef}`, sha: main.object.sha}),
+      body: JSON.stringify({ref: `refs/${branchRef}`, sha: baseRef.object.sha}),
     }, token);
   } catch (error) {
     if (error.status !== 422) throw error;
@@ -217,7 +218,7 @@ export async function publishSnapshot(env, data) {
       body: JSON.stringify({
         title: `${production ? 'Update' : '[PREVIEW] Validate'} RV data to ${data.date}`,
         head: branch,
-        base: 'main',
+        base,
         body: `${production ? 'Automated' : 'Preview'} sanitized Excel update.\n\n- Mode: ${production ? 'production' : 'preview — never auto-merge'}\n- Data date: ${data.date}\n- Values: ${count}/460\n- SHA-256: \`${digest}\`\n- Validation: PASS`,
       }),
     }, token);

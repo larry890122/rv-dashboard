@@ -7,6 +7,7 @@
   "vars": {
     "RV_UPLOAD_ENABLED": "false",
     "PUBLISH_MODE": "preview",
+    "PREVIEW_BASE_REF": "codex/rv-upload-portal",
     "ALLOWED_ORIGINS": "https://larry890122.github.io",
     "GITHUB_REPOSITORY": "larry890122/rv-dashboard",
     "PUBLIC_MANIFEST_URL": "https://larry890122.github.io/rv-dashboard/integration-manifest.json"

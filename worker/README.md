@@ -35,4 +35,5 @@ same `/health` URL has been opened successfully from the company computer.
 
 Preview versions must set `PUBLISH_MODE=preview`. They create `preview/rv-data-*`
 branches with the `rv-data-preview` label, so the production auto-merge conditions
-cannot match. Production requires the separate `PUBLISH_MODE=production` setting.
+cannot match. They also target `PREVIEW_BASE_REF`, never `main`. Production requires
+the separate `PUBLISH_MODE=production` setting and always targets `main`.

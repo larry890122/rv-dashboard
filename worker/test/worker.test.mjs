@@ -115,7 +115,7 @@ async function githubEnv() {
   return env({
     RV_UPLOAD_ENABLED: 'true', GITHUB_APP_ID: '123', GITHUB_APP_INSTALLATION_ID: '456',
     GITHUB_APP_PRIVATE_KEY: pem, GITHUB_REPOSITORY: 'owner/repo',
-    PUBLISH_MODE: 'preview',
+    PUBLISH_MODE: 'preview', PREVIEW_BASE_REF: 'codex/rv-upload-portal',
   });
 }
 
@@ -130,7 +130,7 @@ test('duplicate sanitized submission returns its existing PR', async () => {
     calls.push([String(url), options.method || 'GET']);
     if (String(url).endsWith('/access_tokens')) return apiJson({token: 'installation'});
     if (String(url).includes('/contents/assets/rv-data.json')) return apiJson({sha: 'file-sha', content: Buffer.from(JSON.stringify(snapshot('2026-08-05'))).toString('base64')});
-    if (String(url).endsWith('/git/ref/heads/main')) return apiJson({object: {sha: 'main-sha'}});
+    if (String(url).endsWith('/git/ref/heads/codex/rv-upload-portal')) return apiJson({object: {sha: 'base-sha'}});
     if (String(url).endsWith('/git/refs')) return apiJson({message: 'Reference already exists'}, 422);
     if (String(url).includes('/pulls?state=all')) return apiJson([{number: 73, state: 'open', merged_at: null}]);
     throw new Error(`Unexpected URL ${url}`);
@@ -149,7 +149,7 @@ test('successful publish writes only sanitized rv-data and labels one PR', async
     calls.push({url: String(url), method, body: options.body});
     if (String(url).endsWith('/access_tokens')) return apiJson({token: 'installation'});
     if (String(url).includes('/contents/assets/rv-data.json') && method === 'GET') return apiJson({sha: 'file-sha', content: Buffer.from(JSON.stringify(snapshot('2026-08-05'))).toString('base64')});
-    if (String(url).endsWith('/git/ref/heads/main')) return apiJson({object: {sha: 'main-sha'}});
+    if (String(url).endsWith('/git/ref/heads/codex/rv-upload-portal')) return apiJson({object: {sha: 'base-sha'}});
     if (String(url).endsWith('/git/refs') && method === 'POST') return apiJson({ref: 'created'});
     if (String(url).includes('/contents/assets/rv-data.json') && method === 'PUT') return apiJson({content: {sha: 'new-file'}});
     if (String(url).endsWith('/pulls') && method === 'POST') return apiJson({number: 74});
@@ -167,6 +167,8 @@ test('successful publish writes only sanitized rv-data and labels one PR', async
     assert.deepEqual(JSON.parse(label.body), {labels: ['rv-data-preview']});
     const updateBody = JSON.parse(update.body);
     assert.match(updateBody.branch, /^preview\/rv-data-/);
+    const pull = calls.find(call => call.url.endsWith('/pulls') && call.method === 'POST');
+    assert.equal(JSON.parse(pull.body).base, 'codex/rv-upload-portal');
   } finally { globalThis.fetch = savedFetch; }
 });
 
@@ -178,7 +180,7 @@ test('GitHub update failure cleans up the automation branch', async () => {
     calls.push([String(url), method]);
     if (String(url).endsWith('/access_tokens')) return apiJson({token: 'installation'});
     if (String(url).includes('/contents/assets/rv-data.json') && method === 'GET') return apiJson({sha: 'file-sha', content: Buffer.from(JSON.stringify(snapshot('2026-08-05'))).toString('base64')});
-    if (String(url).endsWith('/git/ref/heads/main')) return apiJson({object: {sha: 'main-sha'}});
+    if (String(url).endsWith('/git/ref/heads/codex/rv-upload-portal')) return apiJson({object: {sha: 'base-sha'}});
     if (String(url).endsWith('/git/refs') && method === 'POST') return apiJson({ref: 'created'});
     if (String(url).includes('/contents/assets/rv-data.json') && method === 'PUT') return apiJson({message: 'boom'}, 500);
     if (String(url).includes('/git/refs/heads/preview/') && method === 'DELETE') return apiJson({});
