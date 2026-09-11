@@ -1,0 +1,1416 @@
+{
+  "date": "2026-08-05",
+  "horizon": "2Y",
+  "sections": {
+    "Overview": {
+      "Spread": [
+        {
+          "sector": "JULI",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 81.53,
+          "median": 92.155,
+          "max": 126.69,
+          "current": 90.62,
+          "pct": 0.409
+        },
+        {
+          "sector": "Fin",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 79.3,
+          "median": 91.3,
+          "max": 131.2,
+          "current": 87.5,
+          "pct": 0.296
+        },
+        {
+          "sector": "Non-Fin",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 82.95,
+          "median": 93.67500000000001,
+          "max": 127.13,
+          "current": 91.85,
+          "pct": 0.405
+        },
+        {
+          "sector": "AA",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 49.3,
+          "median": 61.2,
+          "max": 84.1,
+          "current": 74.9,
+          "pct": 0.936
+        },
+        {
+          "sector": "A",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 67.9,
+          "median": 78.85,
+          "max": 110.7,
+          "current": 77.6,
+          "pct": 0.433
+        },
+        {
+          "sector": "BBB",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 101.6,
+          "median": 113.35,
+          "max": 153.2,
+          "current": 109.1,
+          "pct": 0.23
+        }
+      ],
+      "10Y": [
+        {
+          "sector": "JULI",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 83.79,
+          "median": 95.16499999999999,
+          "max": 134.32,
+          "current": 93.58,
+          "pct": 0.387
+        },
+        {
+          "sector": "Fin",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 89.7,
+          "median": 103.565,
+          "max": 147.25,
+          "current": 100.57,
+          "pct": 0.359
+        },
+        {
+          "sector": "Non-Fin",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 82.2,
+          "median": 92.88,
+          "max": 129.41,
+          "current": 91.4,
+          "pct": 0.387
+        },
+        {
+          "sector": "AA",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 48.36,
+          "median": 57.435,
+          "max": 85.44,
+          "current": 67.16,
+          "pct": 0.862
+        },
+        {
+          "sector": "A",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 71.22,
+          "median": 82.69999999999999,
+          "max": 118.35,
+          "current": 81.7,
+          "pct": 0.423
+        },
+        {
+          "sector": "BBB",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 102.1,
+          "median": 113.025,
+          "max": 155.25,
+          "current": 110.45,
+          "pct": 0.302
+        }
+      ],
+      "30Y": [
+        {
+          "sector": "JULI",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 87.92,
+          "median": 101.2,
+          "max": 134.37,
+          "current": 100.61,
+          "pct": 0.475
+        },
+        {
+          "sector": "Fin",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 83.43,
+          "median": 97.515,
+          "max": 135.5,
+          "current": 93.54,
+          "pct": 0.322
+        },
+        {
+          "sector": "Non-Fin",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 89.36,
+          "median": 102.85,
+          "max": 135.53,
+          "current": 101.94,
+          "pct": 0.467
+        },
+        {
+          "sector": "AA",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 55.34,
+          "median": 70.74,
+          "max": 97.98,
+          "current": 89.74,
+          "pct": 0.974
+        },
+        {
+          "sector": "A",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 74.31,
+          "median": 86.025,
+          "max": 117.7,
+          "current": 85.98,
+          "pct": 0.499
+        },
+        {
+          "sector": "BBB",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 111.38,
+          "median": 125.57,
+          "max": 163.41,
+          "current": 120.88,
+          "pct": 0.288
+        }
+      ],
+      "10s30s": [
+        {
+          "sector": "JULI",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -4.06,
+          "median": 4.73,
+          "max": 10.52,
+          "current": 7.03,
+          "pct": 0.819
+        },
+        {
+          "sector": "Fin",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -16.29,
+          "median": -6.88,
+          "max": -2.3,
+          "current": -7.03,
+          "pct": 0.449
+        },
+        {
+          "sector": "Non-Fin",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 0.04,
+          "median": 8.45,
+          "max": 15.51,
+          "current": 10.54,
+          "pct": 0.737
+        },
+        {
+          "sector": "AA",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 3.21,
+          "median": 11.635,
+          "max": 24.8,
+          "current": 22.58,
+          "pct": 0.958
+        },
+        {
+          "sector": "A",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -5.21,
+          "median": 2.13,
+          "max": 8.19,
+          "current": 4.28,
+          "pct": 0.846
+        },
+        {
+          "sector": "BBB",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 3.87,
+          "median": 11.024999999999999,
+          "max": 17.85,
+          "current": 10.43,
+          "pct": 0.403
+        }
+      ]
+    },
+    "Cyclical": {
+      "Spread": [
+        {
+          "sector": "US Bank",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 72.1,
+          "median": 84.84,
+          "max": 128.97,
+          "current": 81.75,
+          "pct": 0.363
+        },
+        {
+          "sector": "Yankee Bank",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 79.68,
+          "median": 93.83,
+          "max": 136.85,
+          "current": 86.44,
+          "pct": 0.206
+        },
+        {
+          "sector": "Insurance",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 85.22,
+          "median": 96.035,
+          "max": 128.9,
+          "current": 92.71,
+          "pct": 0.276
+        },
+        {
+          "sector": "M&M",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 80.36,
+          "median": 100.06,
+          "max": 145.42,
+          "current": 87.91,
+          "pct": 0.157
+        },
+        {
+          "sector": "Chemical",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 96.8,
+          "median": 118.07,
+          "max": 151.53,
+          "current": 102.99,
+          "pct": 0.063
+        },
+        {
+          "sector": "Tech",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 66.36,
+          "median": 85.19,
+          "max": 120.29,
+          "current": 108.24,
+          "pct": 0.972
+        },
+        {
+          "sector": "Auto",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 89.64,
+          "median": 107.96000000000001,
+          "max": 171.61,
+          "current": 95.16,
+          "pct": 0.073
+        },
+        {
+          "sector": "Media",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 110.57,
+          "median": 135.6,
+          "max": 180.11,
+          "current": 152.27,
+          "pct": 0.825
+        },
+        {
+          "sector": "Energy",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 83.16,
+          "median": 107.365,
+          "max": 152.31,
+          "current": 91.25,
+          "pct": 0.095
+        },
+        {
+          "sector": "Capital Good",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 64.63,
+          "median": 79.285,
+          "max": 117.89,
+          "current": 69.62,
+          "pct": 0.123
+        }
+      ],
+      "10Y": [
+        {
+          "sector": "US Bank",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 84.73,
+          "median": 97.64,
+          "max": 143.62,
+          "current": 94.68,
+          "pct": 0.351
+        },
+        {
+          "sector": "Yankee Bank",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 92.58,
+          "median": 111.71000000000001,
+          "max": 164.42,
+          "current": 104.51,
+          "pct": 0.284
+        },
+        {
+          "sector": "Insurance",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 93.15,
+          "median": 104.005,
+          "max": 136.74,
+          "current": 104.26,
+          "pct": 0.508
+        },
+        {
+          "sector": "M&M",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 76.0,
+          "median": 97.765,
+          "max": 149.31,
+          "current": 91.07,
+          "pct": 0.324
+        },
+        {
+          "sector": "Chemical",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 96.85,
+          "median": 119.85,
+          "max": 160.06,
+          "current": 106.09,
+          "pct": 0.101
+        },
+        {
+          "sector": "Tech",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 71.6,
+          "median": 88.68,
+          "max": 117.33,
+          "current": 102.45,
+          "pct": 0.892
+        },
+        {
+          "sector": "Auto",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 104.59,
+          "median": 123.995,
+          "max": 191.83,
+          "current": 114.83,
+          "pct": 0.178
+        },
+        {
+          "sector": "Media",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 87.06,
+          "median": 108.64500000000001,
+          "max": 162.97,
+          "current": 133.08,
+          "pct": 0.908
+        },
+        {
+          "sector": "Energy",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 84.1,
+          "median": 111.655,
+          "max": 162.35,
+          "current": 93.28,
+          "pct": 0.109
+        },
+        {
+          "sector": "Capital Good",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 66.69,
+          "median": 82.215,
+          "max": 122.98,
+          "current": 73.44,
+          "pct": 0.161
+        }
+      ],
+      "30Y": [
+        {
+          "sector": "US Bank",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 74.68,
+          "median": 88.89,
+          "max": 135.35,
+          "current": 87.21,
+          "pct": 0.439
+        },
+        {
+          "sector": "Yankee Bank",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 96.22,
+          "median": 118.13499999999999,
+          "max": 169.19,
+          "current": 102.8,
+          "pct": 0.115
+        },
+        {
+          "sector": "Insurance",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 88.54,
+          "median": 101.525,
+          "max": 134.63,
+          "current": 98.32,
+          "pct": 0.31
+        },
+        {
+          "sector": "M&M",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 84.44,
+          "median": 107.61500000000001,
+          "max": 154.43,
+          "current": 92.32,
+          "pct": 0.141
+        },
+        {
+          "sector": "Chemical",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 107.33,
+          "median": 128.745,
+          "max": 161.7,
+          "current": 113.66,
+          "pct": 0.049
+        },
+        {
+          "sector": "Tech",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 70.57,
+          "median": 93.745,
+          "max": 140.5,
+          "current": 122.99,
+          "pct": 0.964
+        },
+        {
+          "sector": "Auto",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 123.9,
+          "median": 149.3,
+          "max": 220.42,
+          "current": 131.85,
+          "pct": 0.085
+        },
+        {
+          "sector": "Media",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 120.98,
+          "median": 148.505,
+          "max": 192.0,
+          "current": 168.92,
+          "pct": 0.852
+        },
+        {
+          "sector": "Energy",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 90.0,
+          "median": 115.63499999999999,
+          "max": 160.29,
+          "current": 98.56,
+          "pct": 0.093
+        },
+        {
+          "sector": "Capital Good",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 70.96,
+          "median": 87.205,
+          "max": 130.1,
+          "current": 76.72,
+          "pct": 0.127
+        }
+      ],
+      "10s30s": [
+        {
+          "sector": "US Bank",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -22.51,
+          "median": -9.715,
+          "max": -2.82,
+          "current": -7.47,
+          "pct": 0.703
+        },
+        {
+          "sector": "Yankee Bank",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -1.71,
+          "median": 5.285,
+          "max": 9.28,
+          "current": -1.71,
+          "pct": 0.001
+        },
+        {
+          "sector": "Insurance",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -10.77,
+          "median": -3.8049999999999997,
+          "max": 6.6,
+          "current": -5.94,
+          "pct": 0.244
+        },
+        {
+          "sector": "M&M",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 0.15,
+          "median": 9.915,
+          "max": 18.1,
+          "current": 1.25,
+          "pct": 0.017
+        },
+        {
+          "sector": "Chemical",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -3.34,
+          "median": 8.805,
+          "max": 19.64,
+          "current": 7.57,
+          "pct": 0.447
+        },
+        {
+          "sector": "Tech",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -8.36,
+          "median": 3.2350000000000003,
+          "max": 27.6,
+          "current": 20.54,
+          "pct": 0.936
+        },
+        {
+          "sector": "Auto",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 14.27,
+          "median": 24.305,
+          "max": 37.14,
+          "current": 17.02,
+          "pct": 0.025
+        },
+        {
+          "sector": "Media",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 20.92,
+          "median": 36.69,
+          "max": 57.27,
+          "current": 35.84,
+          "pct": 0.457
+        },
+        {
+          "sector": "Energy",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -5.19,
+          "median": 4.89,
+          "max": 10.61,
+          "current": 5.27,
+          "pct": 0.546
+        },
+        {
+          "sector": "Capital Good",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -2.59,
+          "median": 5.245,
+          "max": 13.63,
+          "current": 3.28,
+          "pct": 0.196
+        }
+      ]
+    },
+    "Non-Cyclical": {
+      "Spread": [
+        {
+          "sector": "Telecom",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 84.69,
+          "median": 97.875,
+          "max": 128.48,
+          "current": 106.49,
+          "pct": 0.799
+        },
+        {
+          "sector": "Utility",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 81.62,
+          "median": 92.79499999999999,
+          "max": 126.74,
+          "current": 86.8,
+          "pct": 0.18
+        },
+        {
+          "sector": "F&B",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 71.76,
+          "median": 81.69,
+          "max": 110.38,
+          "current": 78.0,
+          "pct": 0.165
+        },
+        {
+          "sector": "Tobacco",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 84.22,
+          "median": 101.83500000000001,
+          "max": 149.24,
+          "current": 88.3,
+          "pct": 0.089
+        },
+        {
+          "sector": "Healthcare",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 70.87,
+          "median": 87.65,
+          "max": 114.73,
+          "current": 76.55,
+          "pct": 0.099
+        },
+        {
+          "sector": "Retail",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 64.54,
+          "median": 76.435,
+          "max": 111.04,
+          "current": 69.32,
+          "pct": 0.139
+        },
+        {
+          "sector": "Transportation",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 68.01,
+          "median": 83.125,
+          "max": 117.92,
+          "current": 71.8,
+          "pct": 0.073
+        }
+      ],
+      "10Y": [
+        {
+          "sector": "Telecom",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 79.7,
+          "median": 90.435,
+          "max": 124.93,
+          "current": 97.22,
+          "pct": 0.783
+        },
+        {
+          "sector": "Utility",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 81.23,
+          "median": 92.275,
+          "max": 126.32,
+          "current": 88.7,
+          "pct": 0.258
+        },
+        {
+          "sector": "F&B",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 71.51,
+          "median": 83.80000000000001,
+          "max": 116.17,
+          "current": 80.01,
+          "pct": 0.252
+        },
+        {
+          "sector": "Tobacco",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 75.83,
+          "median": 93.715,
+          "max": 137.23,
+          "current": 82.81,
+          "pct": 0.141
+        },
+        {
+          "sector": "Healthcare",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 66.46,
+          "median": 79.375,
+          "max": 108.66,
+          "current": 72.35,
+          "pct": 0.172
+        },
+        {
+          "sector": "Retail",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 63.62,
+          "median": 74.69,
+          "max": 114.9,
+          "current": 69.0,
+          "pct": 0.188
+        },
+        {
+          "sector": "Transportation",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 69.08,
+          "median": 80.875,
+          "max": 118.89,
+          "current": 75.9,
+          "pct": 0.18
+        }
+      ],
+      "30Y": [
+        {
+          "sector": "Telecom",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 90.84,
+          "median": 107.07,
+          "max": 137.39,
+          "current": 119.68,
+          "pct": 0.856
+        },
+        {
+          "sector": "Utility",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 86.58,
+          "median": 98.72,
+          "max": 133.05,
+          "current": 92.47,
+          "pct": 0.222
+        },
+        {
+          "sector": "F&B",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 78.92,
+          "median": 89.675,
+          "max": 117.96,
+          "current": 85.82,
+          "pct": 0.174
+        },
+        {
+          "sector": "Tobacco",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 100.83,
+          "median": 118.99000000000001,
+          "max": 171.9,
+          "current": 105.62,
+          "pct": 0.093
+        },
+        {
+          "sector": "Healthcare",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 77.82,
+          "median": 95.36500000000001,
+          "max": 124.0,
+          "current": 84.6,
+          "pct": 0.107
+        },
+        {
+          "sector": "Retail",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 72.63,
+          "median": 85.525,
+          "max": 119.76,
+          "current": 77.97,
+          "pct": 0.166
+        },
+        {
+          "sector": "Transportation",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 69.75,
+          "median": 85.975,
+          "max": 118.55,
+          "current": 73.83,
+          "pct": 0.075
+        }
+      ],
+      "10s30s": [
+        {
+          "sector": "Telecom",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 5.88,
+          "median": 16.665,
+          "max": 24.98,
+          "current": 22.46,
+          "pct": 0.976
+        },
+        {
+          "sector": "Utility",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -3.18,
+          "median": 5.45,
+          "max": 13.24,
+          "current": 3.76,
+          "pct": 0.234
+        },
+        {
+          "sector": "F&B",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -0.37,
+          "median": 6.05,
+          "max": 13.31,
+          "current": 5.81,
+          "pct": 0.433
+        },
+        {
+          "sector": "Tobacco",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 11.55,
+          "median": 26.845,
+          "max": 37.27,
+          "current": 22.82,
+          "pct": 0.23
+        },
+        {
+          "sector": "Healthcare",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": 9.86,
+          "median": 15.0,
+          "max": 20.75,
+          "current": 12.25,
+          "pct": 0.105
+        },
+        {
+          "sector": "Retail",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -2.66,
+          "median": 9.46,
+          "max": 17.26,
+          "current": 8.97,
+          "pct": 0.445
+        },
+        {
+          "sector": "Transportation",
+          "sources": {
+            "min": "Excel",
+            "median": "Excel",
+            "max": "Excel",
+            "current": "Excel",
+            "pct": "Excel"
+          },
+          "min": -6.35,
+          "median": 2.41,
+          "max": 9.99,
+          "current": -2.07,
+          "pct": 0.121
+        }
+      ]
+    }
+  }
+}

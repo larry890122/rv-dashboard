@@ -1,0 +1,10 @@
+{
+  "name": "rv-dashboard",
+  "private": true,
+  "scripts": {
+    "test:browser": "node tests/rv-browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.55.0"
+  }
+}

@@ -1,0 +1,17 @@
+name: Peer site health
+
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 peer_status.py --require-reachable
+      - run: curl --fail --location --retry 2 --max-time 20 https://larry890122.github.io/rv-dashboard/

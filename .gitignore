@@ -1,0 +1,13 @@
+.DS_Store
+.env
+.env.*
+.sites-runtime/
+__pycache__/
+node_modules/
+public/
+data-audit.json
+*.xlsx
+*.xlsm
+*.pptx
+*.pdf
+*.inspect.ndjson

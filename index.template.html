@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23132443'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='sans-serif' font-size='18' fill='white'%3ERV%3C/text%3E%3C/svg%3E">
+  <meta name="description" content="IG 相對價值：2Y 歷史區間、目前值與 percentile。">
+  <title>RV 相對價值</title>
+  <link rel="canonical" href="https://larry890122.github.io/rv-dashboard/">
+  <link rel="stylesheet" href="assets/site.css">
+  <link rel="stylesheet" href="assets/rv.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header">
+    <div class="nav-shell">
+      <a class="brand" href="./">RV 相對價值</a>
+      <nav class="site-nav" aria-label="主要導覽">
+        <a href="https://larry890122.github.io/ib-knowledge-base/">券商報告知識庫</a>
+        <a href="./" aria-current="page">RV 相對價值</a>
+      </nav>
+    </div>
+  </header>
+  <main id="main-content" class="rv-shell">
+    <div class="rv-heading"><div><p class="rv-kicker">INVESTMENT GRADE / RELATIVE VALUE</p><h1>RV 相對價值</h1></div><p class="rv-date">資料日期 <time datetime="{{DATA_DATE_ISO}}">{{DATA_DATE_DISPLAY}}</time><br><strong>2Y Horizon</strong> · 歷史快照，非即時行情</p></div>
+    <div class="rv-controls"><fieldset><legend>產業分類</legend><div class="rv-options"><label><input type="radio" name="section" value="Overview" checked><span>Overview</span></label><label><input type="radio" name="section" value="Cyclical"><span>Cyclical</span></label><label><input type="radio" name="section" value="Non-Cyclical"><span>Non-Cyclical</span></label></div></fieldset><fieldset><legend>比較指標 <small>Spread／10Y／30Y 可複選；10s30s 獨立選取</small></legend><div class="rv-options"><label><input type="checkbox" name="metric" value="Spread" checked><span>Spread</span></label><label><input type="checkbox" name="metric" value="10Y"><span>10Y</span></label><label><input type="checkbox" name="metric" value="30Y"><span>30Y</span></label><label><input type="checkbox" name="metric" value="10s30s"><span>10s30s</span></label></div></fieldset></div>
+    <div class="rv-guide"><span><i class="range-key"></i>2Y Min–Max</span><span><i class="median-key"></i>中位數</span><span><i class="current-key"></i>目前值</span><span><i class="pct-key"></i>Percentile</span><small>移入、聚焦或點選資料點，只顯示該點數值</small></div>
+    <p id="rv-status" role="status">正在載入資料…</p><div id="rv-charts" class="rv-grid"></div>
+    <aside class="rv-note"><h2>如何閱讀</h2><p>Percentile 越高，代表利差相對自身 2 年歷史較寬，或 10s30s 曲線較陡；不直接代表買進評級。10s30s 為 30Y 與 10Y 利差之差。已選指標在各產業內依圖例順序並排，使用同一 bp 刻度；下方 percentile 共用 0–100% 刻度。</p><p>移到資料點才顯示該點數值（最多 6 位小數，排除浮點尾差）。缺值不補零。投影片標示備援以約數呈現。</p><a href="https://larry890122.github.io/ib-knowledge-base/">返回券商報告知識庫</a></aside>
+    <noscript>請啟用 JavaScript 以操作互動圖表。</noscript>
+  </main>
+  <div id="rv-tooltip" role="tooltip" hidden></div>
+  <script src="assets/rv.js" defer></script>
+  <footer class="site-footer"><span>公開摘要版｜資料僅供研究參考，不構成投資建議。</span><span>內容來源：RV Excel 快照／已核對投影片</span></footer>
+</body>
+</html>
