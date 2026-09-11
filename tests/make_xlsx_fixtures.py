@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import html
 import zipfile
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 SECTIONS = {
@@ -59,7 +59,7 @@ def create_workbook(path: Path, metric: str, data_date: str, variant: str = "val
         for index, category in enumerate(categories):
             date_value = data_date
             if variant == "date-mismatch" and metric == "30Y" and section == "Overview" and index == 0:
-                date_value = "2026-08-07"
+                date_value = (date.fromisoformat(data_date) + timedelta(days=1)).isoformat()
             history_cells.append(numeric_cell(f"{col(1 + index * 4)}8", excel_serial(date_value)))
             summary_cells.append(text_cell(f"{col(5 + index)}4", category))
             base = metric_offset + section_index * 20 + index
@@ -101,12 +101,12 @@ def create_workbook(path: Path, metric: str, data_date: str, variant: str = "val
             archive.writestr(f"xl/worksheets/sheet{index}.xml", content)
 
 
-def make_fixtures(output: Path, variant: str = "valid") -> list[Path]:
+def make_fixtures(output: Path, variant: str = "valid", data_date: str = "2026-08-06") -> list[Path]:
     output.mkdir(parents=True, exist_ok=True)
     paths = []
     for metric in METRICS:
         path = output / FILENAMES[metric]
-        create_workbook(path, metric, "2026-08-05" if variant == "outdated" else "2026-08-06", variant)
+        create_workbook(path, metric, data_date, variant)
         paths.append(path)
     return paths
 
@@ -115,8 +115,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--variant", choices=("valid", "date-mismatch", "outdated", "missing", "order"), default="valid")
+    parser.add_argument("--date", default="2026-08-06")
     arguments = parser.parse_args()
-    for result in make_fixtures(arguments.out, arguments.variant):
+    for result in make_fixtures(arguments.out, arguments.variant, arguments.date):
         print(result.name)
 
 

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const {execFileSync} = require('node:child_process');
-const {mkdtempSync,rmSync,writeFileSync} = require('node:fs');
+const {mkdtempSync,readFileSync,rmSync,writeFileSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const {join} = require('node:path');
 
@@ -77,13 +77,13 @@ const FILES = {
   '10s30s':'10s30s RV.xlsx',
 };
 
-function fixtures(root,variant) {
+function fixtures(root,variant,date) {
   const output=join(root,variant);
-  execFileSync('python3',['tests/make_xlsx_fixtures.py','--out',output,'--variant',variant],{stdio:'pipe'});
+  execFileSync('python3',['tests/make_xlsx_fixtures.py','--out',output,'--variant',variant,'--date',date],{stdio:'pipe'});
   return Object.fromEntries(Object.entries(FILES).map(([metric,name])=>[metric,join(output,name)]));
 }
 
-async function openUploader(browser,base,width=1440) {
+async function openUploader(browser,base,expectedDate,width=1440) {
   const context=await browser.newContext({viewport:{width,height:1000},hasTouch:width<650});
   const page=await context.newPage();
   const requests=[];
@@ -93,7 +93,7 @@ async function openUploader(browser,base,width=1440) {
     requests.push({url:request.url(),method:request.method(),body:request.postData()});
     if(request.url().endsWith('/session')) return route.fulfill({contentType:'application/json',body:JSON.stringify({token:'test-session',expires_in:900})});
     if(request.url().endsWith('/publish')) return route.fulfill({status:202,contentType:'application/json',body:JSON.stringify({id:'42',state:'pending'})});
-    if(request.url().endsWith('/status/42')) return route.fulfill({contentType:'application/json',body:JSON.stringify({state:'deployed',message:'發布完成：2026-08-06，正式站驗證 PASS。'})});
+    if(request.url().endsWith('/status/42')) return route.fulfill({contentType:'application/json',body:JSON.stringify({state:'deployed',message:`發布完成：${expectedDate}，正式站驗證 PASS。`})});
     if(request.url().endsWith('/health')) return route.fulfill({contentType:'text/plain',body:'RV Upload Service OK'});
     return route.fulfill({status:404,body:'not found'});
   });
@@ -106,12 +106,12 @@ async function selectFour(page,files) {
   for(const [metric,path] of Object.entries(files)) await page.locator(`input[data-metric="${metric}"]`).setInputFiles(path);
 }
 
-async function runValidUpload(browser,base,width,files) {
-  const {context,page,requests}=await openUploader(browser,base,width);
+async function runValidUpload(browser,base,width,files,expectedDate) {
+  const {context,page,requests}=await openUploader(browser,base,expectedDate,width);
   await selectFour(page,files);
   await page.getByRole('button',{name:'在本機驗證'}).click();
   await page.locator('#validation-status.success').waitFor();
-  assert.equal(await page.locator('#summary-date').innerText(),'2026-08-06');
+  assert.equal(await page.locator('#summary-date').innerText(),expectedDate);
   assert.equal(await page.locator('#summary-count').innerText(),'460 / 460');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${width}/uploader overflow`);
   await page.locator('#upload-password').fill('company password');
@@ -121,12 +121,12 @@ async function runValidUpload(browser,base,width,files) {
   assert.ok(publish,'sanitized publish request was sent');
   assert.deepEqual(Object.keys(JSON.parse(publish.body)),['data']);
   assert.equal(/\.xlsx|2Y Percentile|10Y RV|30Y RV|10s30s RV|source_file|sha256/i.test(publish.body),false,'request must not contain workbook identity or hash');
-  assert.equal(JSON.parse(publish.body).data.date,'2026-08-06');
+  assert.equal(JSON.parse(publish.body).data.date,expectedDate);
   await context.close();
 }
 
-async function runInvalidUpload(browser,base,files,expected) {
-  const {context,page,requests}=await openUploader(browser,base);
+async function runInvalidUpload(browser,base,files,expected,currentDate) {
+  const {context,page,requests}=await openUploader(browser,base,currentDate);
   await selectFour(page,files);
   await page.getByRole('button',{name:'在本機驗證'}).click();
   await page.locator('#validation-status.error').waitFor();
@@ -143,16 +143,19 @@ if(require.main===module) (async()=>{
   const temporary=mkdtempSync(join(tmpdir(),'rv-upload-test-'));
   try {
     for(const width of [1440,768,375]) console.log(await run(browser,base,width));
-    const valid=fixtures(temporary,'valid');
-    for(const width of [1440,768,375]) await runValidUpload(browser,base,width,valid);
-    await runInvalidUpload(browser,base,fixtures(temporary,'date-mismatch'),/日期不一致/);
-    await runInvalidUpload(browser,base,fixtures(temporary,'outdated'),/必須晚於正式站/);
-    await runInvalidUpload(browser,base,fixtures(temporary,'missing'),/缺值或不是有效數字/);
-    await runInvalidUpload(browser,base,fixtures(temporary,'order'),/Min ≤ Median ≤ Max/);
+    const currentDate=JSON.parse(readFileSync('assets/rv-data.json','utf8')).date;
+    const nextDate=new Date(`${currentDate}T00:00:00Z`);nextDate.setUTCDate(nextDate.getUTCDate()+1);
+    const expectedDate=nextDate.toISOString().slice(0,10);
+    const valid=fixtures(temporary,'valid',expectedDate);
+    for(const width of [1440,768,375]) await runValidUpload(browser,base,width,valid,expectedDate);
+    await runInvalidUpload(browser,base,fixtures(temporary,'date-mismatch',expectedDate),/日期不一致/,currentDate);
+    await runInvalidUpload(browser,base,fixtures(temporary,'outdated',currentDate),/必須晚於正式站/,currentDate);
+    await runInvalidUpload(browser,base,fixtures(temporary,'missing',expectedDate),/缺值或不是有效數字/,currentDate);
+    await runInvalidUpload(browser,base,fixtures(temporary,'order',expectedDate),/Min ≤ Median ≤ Max/,currentDate);
     const wrong={...valid};
     wrong.Spread=join(temporary,'wrong.txt');
     writeFileSync(wrong.Spread,'not an xlsx');
-    await runInvalidUpload(browser,base,wrong,/必須選取 .xlsx/);
+    await runInvalidUpload(browser,base,wrong,/必須選取 .xlsx/,currentDate);
   }
   finally {rmSync(temporary,{recursive:true,force:true});await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
