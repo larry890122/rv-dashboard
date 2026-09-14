@@ -143,6 +143,14 @@ class RVTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 verify_data_only_pr(changed)
 
+    def test_automated_pr_triggers_one_main_deployment(self):
+        workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
+        self.assertIn("github.event.action == 'labeled'", workflow)
+        self.assertIn("github.event.label.name == 'automated-rv-data'", workflow)
+        self.assertIn("actions: write", workflow)
+        self.assertIn("gh workflow run pages.yml --ref main", workflow)
+        self.assertIn("github.event_name == 'workflow_dispatch'", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
