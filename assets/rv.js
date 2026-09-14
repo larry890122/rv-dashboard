@@ -98,5 +98,6 @@
   });
   document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});document.addEventListener('click',hide);
   window.addEventListener('resize',()=>{if(data)render();});window.addEventListener('scroll',hide,true);
-  fetch('assets/rv-data.json').then(r=>{if(!r.ok)throw Error();return r.json();}).then(d=>{data=d;render();}).catch(()=>{status.textContent='資料暫時無法載入，請重新整理頁面。';});
+  const dataVersion=document.querySelector('.rv-date time')?.getAttribute('datetime')||String(Date.now());
+  fetch(`assets/rv-data.json?v=${encodeURIComponent(dataVersion)}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(d=>{data=d;render();}).catch(()=>{status.textContent='資料暫時無法載入，請重新整理頁面。';});
 })();

@@ -62,6 +62,13 @@ class RVTests(unittest.TestCase):
         self.assertEqual(manifest["validation_status"], "PASS")
         validate_peer({**manifest, "site_id": "ib-knowledge-base"}, "ib-knowledge-base")
 
+    def test_data_assets_are_versioned_by_snapshot_date(self):
+        page = (self.public / "index.html").read_text(encoding="utf-8")
+        script = (self.public / "assets" / "rv.js").read_text(encoding="utf-8")
+        self.assertIn(f'assets/rv.js?v={self.data["date"]}', page)
+        self.assertIn('rv-data.json?v=', script)
+        self.assertIn("{cache:'no-store'}", script)
+
     def test_no_provenance_leak(self):
         for path in self.public.rglob("*"):
             if not path.is_file() or path.suffix.lower() not in {".html", ".json", ".js", ".css", ".txt"}:
