@@ -1,0 +1,9 @@
+{
+  "worker": "rv-upload-service",
+  "url": "https://rv-upload-service.rv-dashboard.workers.dev/health",
+  "mode": "health-only",
+  "version_id": "0e81da9b-99ca-4e21-a4f2-47221766e73c",
+  "deployed_at": "2026-09-11T07:24:03.848Z",
+  "development_network_check": "PASS",
+  "company_network_check": "PASS"
+}

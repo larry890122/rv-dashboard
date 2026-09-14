@@ -1,0 +1,228 @@
+(() => {
+  'use strict';
+
+  const METRICS=['Spread','10Y','30Y','10s30s'];
+  const FIELDS=['min','median','max','current','pct'];
+  const SECTIONS={
+    Overview:['JULI','Fin','Non-Fin','AA','A','BBB'],
+    Cyclical:['US Bank','Yankee Bank','Insurance','M&M','Chemical','Tech','Auto','Media','Energy','Capital Good'],
+    'Non-Cyclical':['Telecom','Utility','F&B','Tobacco','Healthcare','Retail','Transportation']
+  };
+  const ALIASES={Ins:'Insurance',Chem:'Chemical',HC:'Healthcare',Trans:'Transportation'};
+  const inputs=new Map([...document.querySelectorAll('input[type=file][data-metric]')].map(input=>[input.dataset.metric,input]));
+  const names=new Map([...document.querySelectorAll('[data-file-name]')].map(output=>[output.dataset.fileName,output]));
+  const validationStatus=document.querySelector('#validation-status');
+  const validationSummary=document.querySelector('#validation-summary');
+  const publishStatus=document.querySelector('#publish-status');
+  const publishButton=document.querySelector('#publish-data');
+  const password=document.querySelector('#upload-password');
+  const serviceState=document.querySelector('#service-state');
+  const drop=document.querySelector('#bulk-drop');
+  const state={files:{},data:null,config:{enabled:false,api_url:''},currentDate:null,token:null};
+
+  const setStatus=(element,type,message)=>{element.className=`status ${type}`;element.textContent=message;};
+  const finite=value=>typeof value==='number'&&Number.isFinite(value);
+  const column=number=>{let out='';while(number){number--;out=String.fromCharCode(65+number%26)+out;number=Math.floor(number/26);}return out;};
+  const child=(node,name)=>[...node.childNodes].find(item=>item.localName===name);
+  const nodes=(node,name)=>[...node.getElementsByTagNameNS('*',name)];
+  const xml=(bytes,path)=>{
+    if(!bytes)throw Error(`Excel 缺少必要檔案：${path}`);
+    const doc=new DOMParser().parseFromString(new TextDecoder().decode(bytes),'application/xml');
+    if(doc.querySelector('parsererror'))throw Error(`Excel XML 無法解析：${path}`);
+    return doc;
+  };
+  const dateFromSerial=(serial,date1904)=>{
+    if(!finite(serial))throw Error('Excel 資料日期不是有效數字');
+    const epoch=Date.UTC(date1904?1904:1899,date1904?0:11,date1904?1:30);
+    return new Date(epoch+Math.floor(serial)*86400000).toISOString().slice(0,10);
+  };
+  async function inflate(bytes,method){
+    if(method===0)return bytes;
+    if(method!==8)throw Error(`不支援的 Excel ZIP 壓縮格式：${method}`);
+    const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  async function unzip(file){
+    if(file.size>50*1024*1024)throw Error(`${file.name} 超過 50 MB 上限`);
+    const bytes=new Uint8Array(await file.arrayBuffer()),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+    let end=-1;
+    for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--)if(view.getUint32(i,true)===0x06054b50){end=i;break;}
+    if(end<0)throw Error('檔案不是有效的 .xlsx ZIP');
+    const count=view.getUint16(end+10,true),decoder=new TextDecoder(),entries=new Map();
+    let offset=view.getUint32(end+16,true);
+    for(let i=0;i<count;i++){
+      if(view.getUint32(offset,true)!==0x02014b50)throw Error('Excel ZIP 目錄損壞');
+      const method=view.getUint16(offset+10,true),size=view.getUint32(offset+20,true),nameLength=view.getUint16(offset+28,true),extraLength=view.getUint16(offset+30,true),commentLength=view.getUint16(offset+32,true),local=view.getUint32(offset+42,true);
+      const name=decoder.decode(bytes.slice(offset+46,offset+46+nameLength));
+      const localNameLength=view.getUint16(local+26,true),localExtraLength=view.getUint16(local+28,true),start=local+30+localNameLength+localExtraLength;
+      if(/^(xl\/(workbook\.xml|_rels\/workbook\.xml\.rels|sharedStrings\.xml|worksheets\/)|\[Content_Types\])/.test(name))entries.set(name,await inflate(bytes.slice(start,start+size),method));
+      offset+=46+nameLength+extraLength+commentLength;
+    }
+    return entries;
+  }
+  function workbookSheets(entries){
+    const workbook=xml(entries.get('xl/workbook.xml'),'xl/workbook.xml');
+    const rels=xml(entries.get('xl/_rels/workbook.xml.rels'),'xl/_rels/workbook.xml.rels');
+    const targets=new Map(nodes(rels,'Relationship').map(rel=>[rel.getAttribute('Id'),rel.getAttribute('Target')]));
+    const sheets=new Map();
+    for(const sheet of nodes(workbook,'sheet')){
+      const rid=sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id')||sheet.getAttribute('r:id');
+      let target=targets.get(rid)||'';
+      target=target.replace(/^\//,'');
+      if(!target.startsWith('xl/'))target=`xl/${target}`;
+      sheets.set(sheet.getAttribute('name'),target.replace('/./','/'));
+    }
+    const workbookPr=nodes(workbook,'workbookPr')[0];
+    return {sheets,date1904:workbookPr?.getAttribute('date1904')==='1'||workbookPr?.getAttribute('date1904')==='true'};
+  }
+  function sharedStrings(entries){
+    const bytes=entries.get('xl/sharedStrings.xml');
+    if(!bytes)return [];
+    return nodes(xml(bytes,'xl/sharedStrings.xml'),'si').map(si=>nodes(si,'t').map(t=>t.textContent||'').join(''));
+  }
+  function cells(doc,strings){
+    const map=new Map();
+    for(const cell of nodes(doc,'c')){
+      const address=cell.getAttribute('r'),type=cell.getAttribute('t')||'n',valueNode=child(cell,'v');
+      let value=null;
+      if(type==='s'&&valueNode)value=strings[Number(valueNode.textContent)];
+      else if(type==='inlineStr')value=nodes(cell,'t').map(t=>t.textContent||'').join('');
+      else if(type==='str'&&valueNode)value=valueNode.textContent;
+      else if(type!=='e'&&valueNode&&valueNode.textContent!=='')value=Number(valueNode.textContent);
+      map.set(address,value);
+    }
+    return map;
+  }
+  async function parseWorkbook(file,metric){
+    if(!file||!file.name.toLowerCase().endsWith('.xlsx'))throw Error(`${metric} 必須選取 .xlsx 檔案`);
+    const entries=await unzip(file),strings=sharedStrings(entries),{sheets,date1904}=workbookSheets(entries),dates=[],result={};
+    for(const [section,categories] of Object.entries(SECTIONS)){
+      const summaryPath=sheets.get(section),historyPath=sheets.get(`${section} data`);
+      if(!summaryPath||!historyPath)throw Error(`${metric} 缺少 ${section} 或 ${section} data 工作表`);
+      const summary=cells(xml(entries.get(summaryPath),summaryPath),strings),history=cells(xml(entries.get(historyPath),historyPath),strings);
+      const records=[];
+      for(let index=0;index<categories.length;index++){
+        const expected=categories[index],actual=summary.get(`${column(5+index)}4`),normalized=ALIASES[actual]||actual;
+        if(normalized!==expected)throw Error(`${metric}／${section} 分類不符：預期 ${expected}，讀到 ${actual??'空白'}`);
+        dates.push({metric,section,sector:expected,date:dateFromSerial(history.get(`${column(1+index*4)}8`),date1904)});
+        const record={sector:expected,sources:{}};
+        for(let fieldIndex=0;fieldIndex<FIELDS.length;fieldIndex++){
+          const field=FIELDS[fieldIndex],row=[5,7,9,11,6][fieldIndex],base=field==='pct'?[16,18,17][Object.keys(SECTIONS).indexOf(section)]:5;
+          const address=`${column(base+index)}${row}`,value=summary.get(address);
+          if(!finite(value))throw Error(`${metric}／${section}／${expected} 的 ${field}（${address}）缺值或不是有效數字`);
+          if(field==='pct'&&(value<0||value>1))throw Error(`${metric}／${section}／${expected} 的 percentile 超出 0–100%`);
+          record[field]=value;record.sources[field]='Excel';
+        }
+        if(!(record.min<=record.median&&record.median<=record.max))throw Error(`${metric}／${section}／${expected} 未符合 Min ≤ Median ≤ Max`);
+        records.push(record);
+      }
+      result[section]=records;
+    }
+    return {metric,dates,result};
+  }
+  function validateSnapshot(data){
+    if(data.horizon!=='2Y'||Object.keys(data.sections).join('|')!==Object.keys(SECTIONS).join('|'))throw Error('公開資料結構不正確');
+    let count=0;
+    for(const [section,categories] of Object.entries(SECTIONS))for(const metric of METRICS){
+      const records=data.sections[section][metric];
+      if(!Array.isArray(records)||records.length!==categories.length)throw Error(`${section}／${metric} 分類數量不正確`);
+      records.forEach((record,index)=>{
+        if(record.sector!==categories[index])throw Error(`${section}／${metric} 分類順序不正確`);
+        for(const field of FIELDS){
+          if(!finite(record[field]))throw Error(`${section}／${metric}／${record.sector} 的 ${field} 無效`);
+          if(field==='pct'&&(record[field]<0||record[field]>1))throw Error(`${section}／${metric}／${record.sector} 的 percentile 超出 0–100%`);
+          if(record.sources?.[field]!=='Excel')throw Error('自動更新只接受 Excel 來源');
+          count++;
+        }
+        if(!(record.min<=record.median&&record.median<=record.max))throw Error(`${section}／${metric}／${record.sector} 未符合 Min ≤ Median ≤ Max`);
+      });
+    }
+    if(count!==460)throw Error(`應有 460 個值，實際為 ${count}`);
+    return count;
+  }
+  function classify(name){
+    const lower=name.toLowerCase().replace(/\s+/g,'');
+    if(lower.includes('10s30s'))return '10s30s';
+    if(lower.includes('30y'))return '30Y';
+    if(lower.includes('10y'))return '10Y';
+    if(lower.includes('percentile')||lower.includes('spread')||lower.includes('2y'))return 'Spread';
+    return null;
+  }
+  function choose(metric,file){state.files[metric]=file;names.get(metric).textContent=file.name;state.data=null;validationSummary.hidden=true;publishButton.disabled=true;setStatus(validationStatus,'neutral','檔案已變更，請重新驗證。');}
+  function assign(files){
+    const unknown=[],duplicates=[];
+    for(const file of files){const metric=classify(file.name);if(!metric)unknown.push(file.name);else if(state.files[metric])duplicates.push(metric);else choose(metric,file);}
+    if(unknown.length||duplicates.length)setStatus(validationStatus,'error',[unknown.length?`無法辨識：${unknown.join('、')}`:'',duplicates.length?`重複指標：${[...new Set(duplicates)].join('、')}`:''].filter(Boolean).join('\n'));
+  }
+  function clear(){state.files={};state.data=null;state.token=null;for(const input of inputs.values())input.value='';for(const output of names.values())output.textContent='尚未選取';validationSummary.hidden=true;publishButton.disabled=true;setStatus(validationStatus,'neutral','等待選取四份 Excel。');setStatus(publishStatus,'neutral','尚未送出。');}
+  async function validateFiles(){
+    const missing=METRICS.filter(metric=>!state.files[metric]);
+    if(missing.length){setStatus(validationStatus,'error',`缺少：${missing.join('、')}`);return;}
+    setStatus(validationStatus,'neutral','正在本機解析四份 Excel…');
+    try{
+      const parsed=await Promise.all(METRICS.map(metric=>parseWorkbook(state.files[metric],metric))),dates=parsed.flatMap(item=>item.dates),unique=[...new Set(dates.map(item=>item.date))];
+      if(dates.length!==92)throw Error(`應有 92 個資料日期，實際為 ${dates.length}`);
+      if(unique.length!==1){const sample=dates.filter(item=>item.date!==dates[0].date).slice(0,4).map(item=>`${item.metric}／${item.section}／${item.sector}=${item.date}`).join('；');throw Error(`Excel 內嵌日期不一致：${sample}`);}
+      const date=unique[0];
+      if(state.currentDate&&date<=state.currentDate)throw Error(`資料日期 ${date} 必須晚於正式站 ${state.currentDate}；同日修正請走人工 PR`);
+      const sections={};
+      for(const section of Object.keys(SECTIONS)){sections[section]={};for(const item of parsed)sections[section][item.metric]=item.result[section];}
+      const data={date,horizon:'2Y',sections},count=validateSnapshot(data);
+      state.data=data;state.files={};for(const input of inputs.values())input.value='';
+      document.querySelector('#summary-date').textContent=date;document.querySelector('#summary-count').textContent=`${count} / 460`;validationSummary.hidden=false;
+      setStatus(validationStatus,'success','驗證通過。原始 Excel 已從程式狀態釋放，只保留公開摘要資料。');
+      publishButton.disabled=!state.config.enabled;
+    }catch(error){state.data=null;publishButton.disabled=true;setStatus(validationStatus,'error',error.message||String(error));}
+  }
+  const endpoint=path=>`${state.config.api_url.replace(/\/$/,'')}${path}`;
+  async function api(path,options={}){
+    const response=await fetch(endpoint(path),{...options,headers:{'Content-Type':'application/json',...(state.token?{Authorization:`Bearer ${state.token}`}:{ }),...(options.headers||{})}});
+    const body=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
+    if(!response.ok)throw Error(body.error||`HTTP ${response.status}`);
+    return body;
+  }
+  async function testService(){
+    if(!state.config.api_url){setStatus(publishStatus,'error','尚未設定更新服務網址。');return;}
+    try{const response=await fetch(endpoint('/health'),{cache:'no-store'});const text=await response.text();if(!response.ok)throw Error(text||`HTTP ${response.status}`);setStatus(publishStatus,'success',text);}
+    catch(error){setStatus(publishStatus,'error',`公司網路無法連線更新服務：${error.message}`);}
+  }
+  async function pollStatus(id){
+    for(let attempt=0;attempt<60;attempt++){
+      const result=await api(`/status/${encodeURIComponent(id)}`);
+      setStatus(publishStatus,result.state==='failed'?'error':result.state==='deployed'?'success':'neutral',result.message);
+      if(['failed','deployed'].includes(result.state))return;
+      await new Promise(resolve=>setTimeout(resolve,10000));
+    }
+    setStatus(publishStatus,'error','等待超過 10 分鐘；資料可能仍在 GitHub 執行，請稍後查看正式網站。');
+  }
+  async function publish(){
+    if(!state.data||!state.config.enabled)return;
+    const secret=password.value;
+    if(!secret){setStatus(publishStatus,'error','請輸入上傳密碼。');return;}
+    publishButton.disabled=true;setStatus(publishStatus,'neutral','正在登入更新服務…');
+    try{
+      const session=await api('/session',{method:'POST',body:JSON.stringify({password:secret})});state.token=session.token;password.value='';
+      setStatus(publishStatus,'neutral','驗證成功，正在建立資料更新 PR…');
+      const job=await api('/publish',{method:'POST',body:JSON.stringify({data:state.data})});
+      await pollStatus(job.id);
+    }catch(error){setStatus(publishStatus,'error',error.message||String(error));publishButton.disabled=false;}
+  }
+  async function initialize(){
+    try{
+      const [config,current]=await Promise.all([fetch('assets/upload-config.json',{cache:'no-store'}).then(r=>r.json()),fetch('assets/rv-data.json',{cache:'no-store'}).then(r=>r.json())]);
+      state.config=config;state.currentDate=current.date;
+      serviceState.textContent=config.enabled?'更新服務已啟用。驗證資料後即可發布。':'更新服務尚未啟用；目前只能在本機驗證 Excel。';
+      password.disabled=!config.enabled;
+    }catch(error){serviceState.textContent='無法讀取更新服務設定。';setStatus(publishStatus,'error',error.message||String(error));}
+  }
+  for(const [metric,input] of inputs){input.addEventListener('change',()=>{if(input.files[0])choose(metric,input.files[0]);});}
+  drop.addEventListener('dragover',event=>{event.preventDefault();drop.classList.add('dragging');});
+  drop.addEventListener('dragleave',()=>drop.classList.remove('dragging'));
+  drop.addEventListener('drop',event=>{event.preventDefault();drop.classList.remove('dragging');assign([...event.dataTransfer.files]);});
+  drop.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();inputs.get('Spread').click();}});
+  document.querySelector('#clear-files').addEventListener('click',clear);
+  document.querySelector('#validate-files').addEventListener('click',validateFiles);
+  document.querySelector('#test-service').addEventListener('click',testService);
+  publishButton.addEventListener('click',publish);
+  initialize();
+})();

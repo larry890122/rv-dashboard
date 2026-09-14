@@ -2,9 +2,14 @@
   "name": "rv-dashboard",
   "private": true,
   "scripts": {
-    "test:browser": "node tests/rv-browser.cjs"
+    "test:browser": "node tests/rv-browser.cjs",
+    "test:worker": "node --test worker/test/*.test.mjs",
+    "check:worker": "wrangler deploy --dry-run --config worker/wrangler.jsonc",
+    "deploy:worker:health": "wrangler deploy worker/src/health.js --config worker/wrangler.jsonc --name rv-upload-service",
+    "deploy:worker": "wrangler deploy --config worker/wrangler.jsonc"
   },
   "devDependencies": {
-    "playwright": "1.55.0"
+    "playwright": "1.55.0",
+    "wrangler": "4.131.0"
   }
 }
