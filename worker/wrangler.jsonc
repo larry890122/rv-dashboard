@@ -5,9 +5,8 @@
   "compatibility_date": "2026-09-11",
   "workers_dev": true,
   "vars": {
-    "RV_UPLOAD_ENABLED": "false",
-    "PUBLISH_MODE": "preview",
-    "PREVIEW_BASE_REF": "codex/rv-upload-portal",
+    "RV_UPLOAD_ENABLED": "true",
+    "PUBLISH_MODE": "production",
     "ALLOWED_ORIGINS": "https://larry890122.github.io",
     "GITHUB_REPOSITORY": "larry890122/rv-dashboard",
     "PUBLIC_MANIFEST_URL": "https://larry890122.github.io/rv-dashboard/integration-manifest.json"
