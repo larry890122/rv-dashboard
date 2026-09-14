@@ -51,6 +51,11 @@ python3 scripts/extract_rv.py \
 python3 scripts/extract_excel_strict.py \
   --workbooks <Spread.xlsx> <10Y.xlsx> <30Y.xlsx> <10s30s.xlsx> \
   --output <repo之外的暫存JSON>
+
+# 另一個終端先啟動 public/ 靜態站，再比對瀏覽器與 Python 的 sanitized JSON
+node scripts/verify_excel_browser_parity.cjs \
+  http://127.0.0.1:8766/ <暫存JSON> \
+  <Spread.xlsx> <10Y.xlsx> <30Y.xlsx> <10s30s.xlsx>
 ```
 
 ## 建置與驗證
