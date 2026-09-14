@@ -45,12 +45,16 @@ jobs:
           trap 'kill "$server_pid"' EXIT
           pnpm run test:browser -- http://127.0.0.1:8766/
       - uses: actions/upload-pages-artifact@v4
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/main'
         with:
           path: public
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main'
     needs: tests
     environment:
       name: github-pages
@@ -64,6 +68,8 @@ jobs:
   auto-merge-rv-data:
     if: >-
       github.event_name == 'pull_request' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'automated-rv-data' &&
       vars.RV_UPLOAD_APP_LOGIN != '' &&
       github.actor == vars.RV_UPLOAD_APP_LOGIN &&
       github.event.pull_request.head.repo.full_name == github.repository &&
@@ -72,6 +78,7 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
       pull-requests: write
     steps:
@@ -86,3 +93,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr merge "$PR_URL" --squash --delete-branch
+      - name: Trigger main deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main
