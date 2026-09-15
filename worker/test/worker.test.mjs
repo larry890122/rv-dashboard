@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {createSession, handleRequest, publishSnapshot, status, validateSnapshot, verifySession} from '../src/index.js';
+import {
+  createSession, handleRequest, publishLuacSnapshot, publishSnapshot, status, statusLuac,
+  validateLuacSnapshot, validateSnapshot, verifySession,
+} from '../src/index.js';
+import worker from '../src/index.js';
 
 const ORIGIN = 'https://larry890122.github.io';
 const SECTIONS = {
@@ -25,6 +29,29 @@ function snapshot(date = '2026-08-06') {
         pct: 0.5,
       }))])),
     ])),
+  };
+}
+
+const LUAC_COLUMNS = ['id','security_des','issuer','ticker','maturity','rating','maturity_years','oas_bp','yield_pct','industry','flags'];
+
+function luacSnapshot(date = '2026-09-16', count = 25) {
+  return {
+    schema_version: 1,
+    date,
+    columns: LUAC_COLUMNS,
+    records: Array.from({length: count}, (_, index) => [
+      `US000000${String(index).padStart(4, '0')}`,
+      `TEST ${index} 5.0 09/15/30`,
+      `Test Issuer ${index % 4}`,
+      `T${index % 3}`,
+      '2030-09-15',
+      index % 2 ? 'BBB+' : 'A-',
+      4 + index / 100,
+      120 + index,
+      index === count - 1 ? 55 : 5 + index / 100,
+      'Technology',
+      index === count - 1 ? ['yield_outlier'] : [],
+    ]),
   };
 }
 
@@ -65,6 +92,20 @@ test('strict snapshot contains exactly 460 Excel values', () => {
   const outOfRange = snapshot();
   outOfRange.sections.Overview.Spread[0].pct = 1.1;
   assert.throws(() => validateSnapshot(outOfRange), /percentile 越界/);
+});
+
+test('strict LUAC snapshot validates flags, IDs, and finite numbers', () => {
+  assert.deepEqual(validateLuacSnapshot(luacSnapshot()), {count: 25, anomalies: 1});
+  const duplicate = luacSnapshot();
+  duplicate.records[1][0] = duplicate.records[0][0];
+  assert.throws(() => validateLuacSnapshot(duplicate), /ID 重複/);
+  const wrongFlag = luacSnapshot();
+  wrongFlag.records.at(-1)[10] = [];
+  assert.throws(() => validateLuacSnapshot(wrongFlag), /異常標記不正確/);
+  const notFinite = luacSnapshot();
+  notFinite.records[0][7] = Number.POSITIVE_INFINITY;
+  assert.throws(() => validateLuacSnapshot(notFinite), /數值或日期無效/);
+  assert.throws(() => validateLuacSnapshot({...luacSnapshot(), date: '2026-02-31'}), /日期不正確/);
 });
 
 test('session tokens expire after 15 minutes and reject tampering', async () => {
@@ -108,7 +149,19 @@ test('publish endpoint rejects expired sessions and non-data payloads', async ()
   assert.match((await raw.json()).error, /只接受公開摘要/);
 });
 
-async function githubEnv() {
+test('LUAC publish is separately disabled and enforces the 4 MiB body limit', async () => {
+  const token = await createSession('a-long-random-session-secret-for-tests');
+  const disabled = await handleRequest(request('/publish/luac', {
+    method: 'POST', headers: {authorization: `Bearer ${token}`}, body: JSON.stringify({data: luacSnapshot()}),
+  }), env({RV_UPLOAD_ENABLED: 'true', LUAC_UPLOAD_ENABLED: 'false'}));
+  assert.equal(disabled.status, 503);
+  const oversized = await worker.fetch(request('/publish/luac', {
+    method: 'POST', headers: {authorization: `Bearer ${token}`, 'content-length': String(4 * 1024 * 1024 + 1)}, body: '{}',
+  }), env({LUAC_UPLOAD_ENABLED: 'true'}));
+  assert.equal(oversized.status, 413);
+});
+
+async function githubEnv(overrides = {}) {
   const pair = await crypto.subtle.generateKey({name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256'}, true, ['sign', 'verify']);
   const privateKey = new Uint8Array(await crypto.subtle.exportKey('pkcs8', pair.privateKey));
   const pem = `-----BEGIN PRIVATE KEY-----\n${Buffer.from(privateKey).toString('base64')}\n-----END PRIVATE KEY-----`;
@@ -116,6 +169,7 @@ async function githubEnv() {
     RV_UPLOAD_ENABLED: 'true', GITHUB_APP_ID: '123', GITHUB_APP_INSTALLATION_ID: '456',
     GITHUB_APP_PRIVATE_KEY: pem, GITHUB_REPOSITORY: 'owner/repo',
     PUBLISH_MODE: 'preview', PREVIEW_BASE_REF: 'codex/rv-upload-portal',
+    ...overrides,
   });
 }
 
@@ -192,6 +246,51 @@ test('GitHub update failure cleans up the automation branch', async () => {
   } finally { globalThis.fetch = savedFetch; }
 });
 
+test('production LUAC publish writes exactly one asset with its dedicated branch and label', async () => {
+  const savedFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    const method = options.method || 'GET';
+    calls.push({url: String(url), method, body: options.body});
+    if (String(url).endsWith('/access_tokens')) return apiJson({token: 'installation'});
+    if (String(url).includes('/contents/assets/luac-bonds.json') && method === 'GET') {
+      return apiJson({sha: 'luac-file-sha', encoding: 'none'});
+    }
+    if (String(url).endsWith('/git/blobs/luac-file-sha')) return apiJson({content: Buffer.from(JSON.stringify(luacSnapshot('2026-09-15'))).toString('base64')});
+    if (String(url).endsWith('/git/ref/heads/main')) return apiJson({object: {sha: 'base-sha'}});
+    if (String(url).endsWith('/git/refs') && method === 'POST') return apiJson({ref: 'created'});
+    if (String(url).includes('/contents/assets/luac-bonds.json') && method === 'PUT') return apiJson({content: {sha: 'new-luac-file'}});
+    if (String(url).endsWith('/pulls') && method === 'POST') return apiJson({number: 81});
+    if (String(url).endsWith('/issues/81/labels') && method === 'POST') return apiJson([{name: 'automated-luac-data'}]);
+    throw new Error(`Unexpected URL ${url}`);
+  };
+  try {
+    assert.deepEqual(await publishLuacSnapshot(await githubEnv({PUBLISH_MODE: 'production', LUAC_UPLOAD_ENABLED: 'true'}), luacSnapshot()), {id: '81', state: 'pending'});
+    const updates = calls.filter(call => call.method === 'PUT');
+    assert.equal(updates.length, 1);
+    assert.match(updates[0].url, /assets\/luac-bonds\.json$/);
+    const update = JSON.parse(updates[0].body);
+    assert.match(update.branch, /^automation\/luac-data-/);
+    assert.deepEqual(JSON.parse(Buffer.from(update.content, 'base64').toString()).columns, LUAC_COLUMNS);
+    const label = calls.find(call => call.url.endsWith('/issues/81/labels'));
+    assert.deepEqual(JSON.parse(label.body), {labels: ['automated-luac-data']});
+  } finally { globalThis.fetch = savedFetch; }
+});
+
+test('LUAC publish rejects record-count drift above 20 percent', async () => {
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith('/access_tokens')) return apiJson({token: 'installation'});
+    if (String(url).includes('/contents/assets/luac-bonds.json')) {
+      return apiJson({sha: 'luac-file-sha', content: Buffer.from(JSON.stringify(luacSnapshot('2026-09-15', 20))).toString('base64')});
+    }
+    throw new Error(`Unexpected URL ${url}`);
+  };
+  try {
+    await assert.rejects(publishLuacSnapshot(await githubEnv({PUBLISH_MODE: 'production'}), luacSnapshot('2026-09-16', 25)), /超過 ±20%/);
+  } finally { globalThis.fetch = savedFetch; }
+});
+
 test('status reports deployed only after the public PASS manifest matches', async () => {
   const savedFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
@@ -202,6 +301,20 @@ test('status reports deployed only after the public PASS manifest matches', asyn
   };
   try {
     const result = await status({...await githubEnv(), PUBLIC_MANIFEST_URL: 'https://public.example/manifest.json'}, '74');
+    assert.equal(result.state, 'deployed');
+  } finally { globalThis.fetch = savedFetch; }
+});
+
+test('LUAC status reads the additive manifest dataset date', async () => {
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith('/access_tokens')) return apiJson({token: 'installation'});
+    if (String(url).endsWith('/pulls/81')) return apiJson({state: 'closed', merged_at: '2026-09-16T00:00:00Z', merge_commit_sha: 'luac-merge', title: 'Update LUAC data to 2026-09-16'});
+    if (String(url).startsWith('https://public.example/manifest.json')) return apiJson({validation_status: 'PASS', commit_sha: 'luac-merge', datasets: {luac: {content_as_of: '2026-09-16'}}});
+    throw new Error(`Unexpected URL ${url}`);
+  };
+  try {
+    const result = await statusLuac({...await githubEnv(), PUBLIC_MANIFEST_URL: 'https://public.example/manifest.json'}, '81');
     assert.equal(result.state, 'deployed');
   } finally { globalThis.fetch = savedFetch; }
 });

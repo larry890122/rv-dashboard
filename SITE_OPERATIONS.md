@@ -4,7 +4,7 @@
 
 - 本 repository 只負責 `https://larry890122.github.io/rv-dashboard/`。
 - `ib-knowledge-base` 是獨立 peer；本 repo 不得修改或發布它。
-- 私人來源位於 Review workspace 的 `RV/`。抽取程式只讀來源，僅將通過驗證的 `assets/rv-data.json` 寫入本 repo。
+- 私人來源位於 Review workspace。抽取程式只讀來源，僅將通過驗證的 `assets/rv-data.json` 與 `assets/luac-bonds.json` 寫入本 repo。
 - 稽核 JSON 必須寫到 repo 外；Excel、PPT、PDF、絕對路徑與來源雜湊不得公開。
 
 ## 每次開始工作
@@ -31,6 +31,28 @@
 - 完整 CI 必須通過。
 
 任何包含第二個檔案或程式碼的 PR 都不得自動合併。
+
+### LUAC 單券資料
+
+正式來源必須是單一工作表、固定 11 欄、靜態與行情雙區塊的純值 `.xlsx`；只要含公式、缺值、非有限數字、重複或不匹配 ID、或混合資料日，就拒絕整批更新。以下命令只輸出精簡公開 contract，私人 audit 必須在 repo 外：
+
+```sh
+python3 scripts/extract_luac.py <LUAC純值.xlsx> \
+  --output assets/luac-bonds.json \
+  --audit <repo之外>/luac-audit.json
+```
+
+Yield、期限或 OAS 超出公開規則時保留原始數值並標記，但預設圖表與所有 LOWESS 曲線排除。自動更新另要求資料日晚於正式快照，且筆數變動不得超過 ±20%；否則必須走人工 PR。
+
+LUAC 自動資料 PR 的安全條件為：作者等於 `RV_UPLOAD_APP_LOGIN`、branch 以 `automation/luac-data-` 開頭、label 為 `automated-luac-data`、diff 只有 `assets/luac-bonds.json`，且完整 CI 通過。`LUAC_UPLOAD_ENABLED` 與網站 `luac_enabled` 是獨立開關，未完成公司網路 preview 與當期資料核對前保持 `false`。
+
+Bloomberg Desktop API 僅可在已登入 Terminal 的公司 Windows 電腦做唯讀實驗：
+
+```powershell
+python scripts/probe_bloomberg_luac.py --known-security "<approved Bloomberg ID>" --snapshot-output "$env:TEMP\luac-api.json" --compare "$env:TEMP\luac-excel.json"
+```
+
+診斷只輸出成功狀態、筆數、欄位覆蓋與錯誤分類。完整 universe、唯一 ID、必填欄位 100%，且同工作階段比對達 OAS ≤0.5 bp、Yield ≤0.01 個百分點前，不得接正式更新。
 
 ### 人工抽取（含投影片 fallback）
 
@@ -63,6 +85,7 @@ node scripts/verify_excel_browser_parity.cjs \
 ```sh
 python3 publish.py --build-only
 python3 -m unittest discover -s tests -v
+pnpm run test:model
 pnpm run test:worker
 pnpm run check:worker
 python3 peer_status.py
@@ -70,13 +93,13 @@ python3 -m http.server 8766 --directory public
 pnpm run test:browser -- http://127.0.0.1:8766/
 ```
 
-PR 必須通過資料 schema、460 個摘要值、公開資料防洩漏、連結、manifest 與桌面／平板／手機 Playwright 測試。
+PR 必須通過 RV 與 LUAC schema、LOWESS、公開資料防洩漏、連結、manifest 與桌面／平板／手機 Playwright 測試。
 
 ## 發布與回復
 
 - 推送 `codex/<task>` 並建立 PR；CI 通過後才合併 `main`。
 - GitHub Pages 僅部署 `main`，正式站與知識庫使用不同 workflow 及 concurrency group。
-- 發布後確認首頁、`assets/rv-data.json` 與 `integration-manifest.json` 可讀。
+- 發布後確認首頁、`bonds.html`、兩個公開資料 asset 與 `integration-manifest.json` 可讀。
 - 發布失敗時不修改知識庫；修正原 PR 或 `git revert <merge-commit>` 建立回復 PR。
 
 ## 上傳服務 rollout 與回復

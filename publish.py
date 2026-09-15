@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 from rv_data import validate
+from luac_data import validate_luac
 
 
 ROOT = Path(__file__).resolve().parent
@@ -59,7 +60,12 @@ def validate_public(output: Path) -> None:
         output / "assets" / "update.js",
         output / "assets" / "upload-config.json",
         output / "assets" / "rv-data.json",
+        output / "assets" / "luac-bonds.json",
+        output / "assets" / "luac-model.js",
+        output / "assets" / "bonds.js",
+        output / "assets" / "bonds.css",
         output / "update.html",
+        output / "bonds.html",
         output / "integration-manifest.json",
     )
     for path in required:
@@ -78,20 +84,27 @@ def build() -> tuple[Path, dict]:
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     snapshot = json.loads((ROOT / "assets" / "rv-data.json").read_text(encoding="utf-8"))
     validate(snapshot)
+    luac = json.loads((ROOT / "assets" / "luac-bonds.json").read_text(encoding="utf-8"))
+    validate_luac(luac)
     template = (ROOT / "index.template.html").read_text(encoding="utf-8")
     page = template.replace("{{DATA_DATE_ISO}}", snapshot["date"]).replace(
         "{{DATA_DATE_DISPLAY}}", snapshot["date"].replace("-", "/")
     )
     update_page = (ROOT / "update.template.html").read_text(encoding="utf-8")
+    bonds_template = (ROOT / "bonds.template.html").read_text(encoding="utf-8")
+    bonds_page = bonds_template.replace("{{LUAC_DATE_ISO}}", luac["date"]).replace(
+        "{{LUAC_DATE_DISPLAY}}", luac["date"].replace("-", "/")
+    )
     temporary = Path(tempfile.mkdtemp(prefix=".rv-public-", dir=ROOT))
     backup: Path | None = None
     try:
         assets = temporary / "assets"
         assets.mkdir()
-        for name in ("site.css", "rv.css", "rv.js", "update.css", "update.js", "upload-config.json", "rv-data.json"):
+        for name in ("site.css", "rv.css", "rv.js", "bonds.css", "bonds.js", "luac-model.js", "update.css", "update.js", "upload-config.json", "rv-data.json", "luac-bonds.json"):
             shutil.copy2(ROOT / "assets" / name, assets / name)
         (temporary / "index.html").write_text(page, encoding="utf-8")
         (temporary / "update.html").write_text(update_page, encoding="utf-8")
+        (temporary / "bonds.html").write_text(bonds_page, encoding="utf-8")
         (temporary / ".nojekyll").write_text("", encoding="utf-8")
         manifest = {
             "schema_version": 1,
@@ -100,6 +113,10 @@ def build() -> tuple[Path, dict]:
             "commit_sha": git_sha(),
             "built_at": datetime.now().astimezone().isoformat(timespec="seconds"),
             "content_as_of": snapshot["date"],
+            "datasets": {
+                "rv": {"content_as_of": snapshot["date"], "asset": "assets/rv-data.json"},
+                "luac": {"content_as_of": luac["date"], "asset": "assets/luac-bonds.json"},
+            },
             "validation_status": "PASS",
             "content_sha256": content_hash(temporary),
             "peer": config["peer"],

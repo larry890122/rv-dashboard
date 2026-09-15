@@ -1,5 +1,7 @@
 const METRICS = ['Spread', '10Y', '30Y', '10s30s'];
 const FIELDS = ['min', 'median', 'max', 'current', 'pct'];
+const LUAC_COLUMNS = ['id','security_des','issuer','ticker','maturity','rating','maturity_years','oas_bp','yield_pct','industry','flags'];
+const LUAC_FLAGS = ['yield_outlier','maturity_outlier','oas_outlier'];
 const SECTIONS = {
   Overview: ['JULI', 'Fin', 'Non-Fin', 'AA', 'A', 'BBB'],
   Cyclical: ['US Bank', 'Yankee Bank', 'Insurance', 'M&M', 'Chemical', 'Tech', 'Auto', 'Media', 'Energy', 'Capital Good'],
@@ -78,6 +80,13 @@ function finite(value) {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function validIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}
+
 export function validateSnapshot(data) {
   if (!sameKeys(data, ['date', 'horizon', 'sections'])) throw new Error('公開資料欄位不正確');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date) || Number.isNaN(Date.parse(`${data.date}T00:00:00Z`))) throw new Error('資料日期不正確');
@@ -104,6 +113,35 @@ export function validateSnapshot(data) {
   }
   if (count !== 460) throw new Error(`資料值應為 460，實際為 ${count}`);
   return count;
+}
+
+function luacFlags(years, oas, bondYield) {
+  const flags = [];
+  if (bondYield <= 0 || bondYield > 50) flags.push('yield_outlier');
+  if (years <= 0 || years > 100) flags.push('maturity_outlier');
+  if (oas < -250 || oas > 5000) flags.push('oas_outlier');
+  return flags;
+}
+
+export function validateLuacSnapshot(data) {
+  if (!sameKeys(data, ['schema_version', 'date', 'columns', 'records']) || data.schema_version !== 1) throw new Error('LUAC 公開資料欄位不正確');
+  if (!validIsoDate(data.date)) throw new Error('LUAC 資料日期不正確');
+  if (!Array.isArray(data.columns) || data.columns.length !== LUAC_COLUMNS.length || data.columns.some((value, index) => value !== LUAC_COLUMNS[index])) throw new Error('LUAC 欄位順序不正確');
+  if (!Array.isArray(data.records) || data.records.length < 1 || data.records.length > 20000) throw new Error('LUAC 債券筆數不正確');
+  const ids = new Set();
+  let anomalies = 0;
+  for (const [index, row] of data.records.entries()) {
+    if (!Array.isArray(row) || row.length !== LUAC_COLUMNS.length) throw new Error(`LUAC 第 ${index + 1} 筆欄位不完整`);
+    const [id, security, issuer, ticker, maturity, rating, years, oas, bondYield, industry, flags] = row;
+    const text = [[id,64],[security,180],[issuer,300],[ticker,32],[maturity,10],[rating,16],[industry,160]];
+    if (text.some(([value, maximum]) => typeof value !== 'string' || !value.trim() || value.length > maximum)) throw new Error(`LUAC 第 ${index + 1} 筆文字欄位無效`);
+    if (ids.has(id)) throw new Error(`LUAC ID 重複：${id}`); ids.add(id);
+    if (!validIsoDate(maturity) || ![years,oas,bondYield].every(finite)) throw new Error(`LUAC 第 ${index + 1} 筆數值或日期無效`);
+    const expected = luacFlags(years,oas,bondYield);
+    if (!Array.isArray(flags) || flags.length !== expected.length || flags.some((flag, flagIndex) => flag !== expected[flagIndex] || !LUAC_FLAGS.includes(flag))) throw new Error(`LUAC 第 ${index + 1} 筆異常標記不正確`);
+    anomalies += Number(Boolean(flags.length));
+  }
+  return {count:data.records.length, anomalies};
 }
 
 async function digestText(value) {
@@ -172,7 +210,11 @@ async function addAutomationLabel(env, repo, number, token, label) {
     try {
       await githubFetch(env, `/repos/${repo}/labels`, {
         method: 'POST', headers: {'content-type': 'application/json'},
-        body: JSON.stringify({name: label, color: label === 'automated-rv-data' ? '1f6feb' : 'bf8700', description: 'Validated RV data-only update'}),
+        body: JSON.stringify({
+          name: label,
+          color: label.startsWith('automated-') ? '1f6feb' : 'bf8700',
+          description: label.includes('luac') ? 'Validated LUAC data-only update' : 'Validated RV data-only update',
+        }),
       }, token);
     } catch (createError) {
       if (createError.status !== 422) throw createError;
@@ -181,20 +223,23 @@ async function addAutomationLabel(env, repo, number, token, label) {
   }
 }
 
-export async function publishSnapshot(env, data) {
-  const count = validateSnapshot(data);
+async function publishData(env, data, definition) {
+  const validation = definition.validate(data);
   const repo = env.GITHUB_REPOSITORY;
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '')) throw new Error('Worker repository 設定不正確');
   const production = env.PUBLISH_MODE === 'production';
   const base = production ? 'main' : (env.PREVIEW_BASE_REF || 'main');
   const token = await installationToken(env);
-  const current = await githubFetch(env, `/repos/${repo}/contents/assets/rv-data.json?ref=${encodeURIComponent(base)}`, {}, token);
-  const currentData = JSON.parse(decodeGithubContent(current.content));
+  const current = await githubFetch(env, `/repos/${repo}/contents/${definition.path}?ref=${encodeURIComponent(base)}`, {}, token);
+  const encoded = current.content || (await githubFetch(env, `/repos/${repo}/git/blobs/${current.sha}`, {}, token)).content;
+  const currentData = JSON.parse(decodeGithubContent(encoded));
+  definition.validate(currentData);
   if (data.date <= currentData.date) throw new Error(`資料日期 ${data.date} 必須晚於正式站 ${currentData.date}`);
-  const content = `${JSON.stringify(data, null, 2)}\n`;
+  if (definition.checkCurrent) definition.checkCurrent(data, currentData);
+  const content = `${JSON.stringify(data, null, definition.compact ? 0 : 2)}\n`;
   const digest = await digestText(JSON.stringify(data));
-  const label = production ? 'automated-rv-data' : 'rv-data-preview';
-  const branch = `${production ? 'automation' : 'preview'}/rv-data-${data.date}-${digest.slice(0, 12)}`;
+  const label = production ? definition.productionLabel : definition.previewLabel;
+  const branch = `${production ? 'automation' : 'preview'}/${definition.branch}-${data.date}-${digest.slice(0, 12)}`;
   const branchRef = `heads/${branch}`;
   const baseRef = await githubFetch(env, `/repos/${repo}/git/ref/heads/${base}`, {}, token);
   try {
@@ -209,17 +254,17 @@ export async function publishSnapshot(env, data) {
     throw new Error('相同資料 branch 已存在，但找不到對應 PR');
   }
   try {
-    await githubFetch(env, `/repos/${repo}/contents/assets/rv-data.json`, {
+    await githubFetch(env, `/repos/${repo}/contents/${definition.path}`, {
       method: 'PUT', headers: {'content-type': 'application/json'},
-      body: JSON.stringify({message: `Update RV data to ${data.date}`, content: utf8Base64(content), sha: current.sha, branch}),
+      body: JSON.stringify({message: `Update ${definition.name} data to ${data.date}`, content: utf8Base64(content), sha: current.sha, branch}),
     }, token);
     const pr = await githubFetch(env, `/repos/${repo}/pulls`, {
       method: 'POST', headers: {'content-type': 'application/json'},
       body: JSON.stringify({
-        title: `${production ? 'Update' : '[PREVIEW] Validate'} RV data to ${data.date}`,
+        title: `${production ? 'Update' : '[PREVIEW] Validate'} ${definition.name} data to ${data.date}`,
         head: branch,
         base,
-        body: `${production ? 'Automated' : 'Preview'} sanitized Excel update.\n\n- Mode: ${production ? 'production' : 'preview — never auto-merge'}\n- Data date: ${data.date}\n- Values: ${count}/460\n- SHA-256: \`${digest}\`\n- Validation: PASS`,
+        body: `${production ? 'Automated' : 'Preview'} sanitized Excel update.\n\n- Mode: ${production ? 'production' : 'preview — never auto-merge'}\n- Data date: ${data.date}\n- ${definition.summary(validation)}\n- SHA-256: \`${digest}\`\n- Validation: PASS`,
       }),
     }, token);
     await addAutomationLabel(env, repo, pr.number, token, label);
@@ -230,21 +275,55 @@ export async function publishSnapshot(env, data) {
   }
 }
 
-export async function status(env, id) {
+export async function publishSnapshot(env, data) {
+  return publishData(env, data, {
+    name: 'RV', path: 'assets/rv-data.json', branch: 'rv-data', compact: false,
+    productionLabel: 'automated-rv-data', previewLabel: 'rv-data-preview',
+    validate: value => validateSnapshot(value),
+    summary: count => `Values: ${count}/460`,
+  });
+}
+
+function checkLuacDrift(data, currentData) {
+  const ratio = data.records.length / currentData.records.length;
+  if (ratio < 0.8 || ratio > 1.2) {
+    throw new Error(`LUAC 筆數由 ${currentData.records.length} 變為 ${data.records.length}，超過 ±20%，請改走人工 PR`);
+  }
+}
+
+export async function publishLuacSnapshot(env, data) {
+  return publishData(env, data, {
+    name: 'LUAC', path: 'assets/luac-bonds.json', branch: 'luac-data', compact: true,
+    productionLabel: 'automated-luac-data', previewLabel: 'luac-data-preview',
+    validate: value => validateLuacSnapshot(value), checkCurrent: checkLuacDrift,
+    summary: result => `Bonds: ${result.count}; flagged records: ${result.anomalies}`,
+  });
+}
+
+async function deploymentStatus(env, id, definition) {
   if (!/^\d+$/.test(id)) throw new Error('發布編號不正確');
   const token = await installationToken(env);
   const pr = await githubFetch(env, `/repos/${env.GITHUB_REPOSITORY}/pulls/${id}`, {}, token);
   if (pr.state === 'open') return {state: 'pending', message: '資料 PR 已建立，正在等待 CI 驗證與自動合併。'};
   if (!pr.merged_at) return {state: 'failed', message: '資料 PR 已關閉但未合併；正式站未更新。'};
-  const expectedDate = /Update RV data to (\d{4}-\d{2}-\d{2})/.exec(pr.title)?.[1];
+  const expectedDate = new RegExp(`Update ${definition.name} data to (\\d{4}-\\d{2}-\\d{2})`).exec(pr.title)?.[1];
   try {
-    const response = await fetch(`${env.PUBLIC_MANIFEST_URL}?rv_job=${encodeURIComponent(id)}&t=${Date.now()}`, {headers: {'cache-control': 'no-cache'}});
+    const response = await fetch(`${env.PUBLIC_MANIFEST_URL}?${definition.query}=${encodeURIComponent(id)}&t=${Date.now()}`, {headers: {'cache-control': 'no-cache'}});
     const manifest = await response.json();
-    if (response.ok && manifest.validation_status === 'PASS' && manifest.content_as_of === expectedDate && manifest.commit_sha === pr.merge_commit_sha) {
+    const publicDate = definition.dataset ? manifest.datasets?.[definition.dataset]?.content_as_of : manifest.content_as_of;
+    if (response.ok && manifest.validation_status === 'PASS' && publicDate === expectedDate && manifest.commit_sha === pr.merge_commit_sha) {
       return {state: 'deployed', message: `發布完成：${expectedDate}，正式站驗證 PASS。`};
     }
   } catch {}
   return {state: 'deploying', message: 'PR 已合併，GitHub Pages 正在發布與驗證。'};
+}
+
+export async function status(env, id) {
+  return deploymentStatus(env, id, {name: 'RV', query: 'rv_job'});
+}
+
+export async function statusLuac(env, id) {
+  return deploymentStatus(env, id, {name: 'LUAC', query: 'luac_job', dataset: 'luac'});
 }
 
 async function readJson(request, maximum = 262144) {
@@ -278,16 +357,22 @@ export async function handleRequest(request, env) {
     return json({token: await createSession(env.SESSION_SECRET), expires_in: 900}, 200, cors);
   }
   const match = /^\/status\/(\d+)$/.exec(url.pathname);
-  if ((url.pathname === '/publish' && request.method === 'POST') || (match && request.method === 'GET')) {
+  const luacMatch = /^\/status\/luac\/(\d+)$/.exec(url.pathname);
+  const rvPublish = url.pathname === '/publish' && request.method === 'POST';
+  const luacPublish = url.pathname === '/publish/luac' && request.method === 'POST';
+  if (rvPublish || luacPublish || ((match || luacMatch) && request.method === 'GET')) {
     const bearer = /^Bearer (.+)$/.exec(request.headers.get('authorization') || '')?.[1];
     if (!await verifySession(bearer, env.SESSION_SECRET)) return json({error: '登入已過期，請重新輸入密碼'}, 401, cors);
     if (match) return json(await status(env, match[1]), 200, cors);
-    if (env.RV_UPLOAD_ENABLED !== 'true') return json({error: '發布功能尚未啟用'}, 503, cors);
+    if (luacMatch) return json(await statusLuac(env, luacMatch[1]), 200, cors);
+    if ((rvPublish && env.RV_UPLOAD_ENABLED !== 'true') || (luacPublish && env.LUAC_UPLOAD_ENABLED !== 'true')) {
+      return json({error: '發布功能尚未啟用'}, 503, cors);
+    }
     const rate = await env.PUBLISH_RATE_LIMITER.limit({key: await digestText(bearer)});
     if (!rate.success) return json({error: '發布次數過多，請一分鐘後再試'}, 429, cors);
-    const body = await readJson(request);
+    const body = await readJson(request, luacPublish ? 4 * 1024 * 1024 : 262144);
     if (!sameKeys(body, ['data'])) return json({error: '只接受公開摘要 data，不接受檔案或來源資訊'}, 400, cors);
-    const result = await publishSnapshot(env, body.data);
+    const result = luacPublish ? await publishLuacSnapshot(env, body.data) : await publishSnapshot(env, body.data);
     return json(result, 202, cors);
   }
   return json({error: 'Not found'}, 404, cors);

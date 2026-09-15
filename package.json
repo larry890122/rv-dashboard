@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test:browser": "node tests/rv-browser.cjs",
+    "test:model": "node --test tests/luac-model.test.cjs",
     "test:worker": "node --test worker/test/*.test.mjs",
     "check:worker": "wrangler deploy --dry-run --config worker/wrangler.jsonc",
     "deploy:worker:health": "wrangler deploy worker/src/health.js --config worker/wrangler.jsonc --name rv-upload-service",

@@ -1,4 +1,5 @@
 {
   "enabled": true,
+  "luac_enabled": false,
   "api_url": "https://rv-upload-service.rv-dashboard.workers.dev"
 }

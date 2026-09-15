@@ -50,8 +50,10 @@ class RVTests(unittest.TestCase):
         self.assertEqual(page.count('name="metric"'), 4)
         self.assertEqual(page.count('name="section"'), 3)
         self.assertIn('href="update.html"', page)
+        self.assertIn('href="bonds.html"', page)
         update_page = (self.public / "update.html").read_text(encoding="utf-8")
         self.assertIn("四份 Excel", update_page)
+        self.assertIn("LUAC", update_page)
         self.assertIn('assets/update.js', update_page)
 
     def test_integration_manifest(self):
@@ -59,6 +61,8 @@ class RVTests(unittest.TestCase):
         self.assertEqual(manifest["site_id"], "rv-dashboard")
         self.assertEqual(manifest["production_url"], "https://larry890122.github.io/rv-dashboard/")
         self.assertEqual(manifest["content_as_of"], self.data["date"])
+        self.assertEqual(manifest["datasets"]["rv"]["content_as_of"], self.data["date"])
+        self.assertEqual(manifest["datasets"]["luac"]["asset"], "assets/luac-bonds.json")
         self.assertEqual(manifest["validation_status"], "PASS")
         validate_peer({**manifest, "site_id": "ib-knowledge-base"}, "ib-knowledge-base")
 

@@ -1,7 +1,9 @@
 # RV upload Worker
 
-This Worker accepts only the validated public JSON snapshot. It never receives an
-Excel file, filename, local path, or source-file hash.
+This Worker accepts only validated public JSON snapshots. It never receives an
+Excel file, filename, local path, or source-file hash. RV uses `POST /publish` and
+`GET /status/:id`; LUAC uses `POST /publish/luac` (4 MiB maximum) and
+`GET /status/luac/:id`.
 
 Required encrypted Worker secrets:
 
@@ -18,12 +20,12 @@ Create repository variable `RV_UPLOAD_APP_LOGIN` with the App bot login (for exa
 
 Rollout order:
 
-1. Deploy with `RV_UPLOAD_ENABLED=false`; record the returned version ID.
+1. Deploy with `RV_UPLOAD_ENABLED=false` and `LUAC_UPLOAD_ENABLED=false`; record the returned version ID.
 2. Verify `/health` from the company network. It must say `RV Upload Service OK`.
 3. Test a preview deployment with synthetic workbooks.
 4. Set the Worker URL in `assets/upload-config.json`, while keeping `enabled=false`.
-5. After the comparison and browser tests pass, set both the Worker variable and the
-   site config to `true`.
+5. Enable RV and LUAC independently. LUAC requires 8,870 expected records, 4 expected
+   Yield anomalies, browser/Python parity, and the separate site `luac_enabled` flag.
 
 If a full Worker deployment fails, roll back to the recorded health-only version.
 Website rollback must use a PR reverting to tag
