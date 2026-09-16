@@ -32,4 +32,7 @@ body { background:#f7f9fb; font-family:"Microsoft JhengHei","PingFang TC",sans-s
 .actions { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
 .actions .button { margin:0; }
 .privacy-note { color:#5b7080; font-size:13px; line-height:1.7; padding:16px 4px; }
+.luac-upload { margin-top:24px; }
+.luac-file { margin:16px 0 12px; }
+.luac-upload .summary { margin-bottom:14px; }
 @media(max-width:650px) { .upload-shell { padding:24px 16px 40px; } .upload-shell h1 { font-size:27px; } .upload-card { padding:16px; } .file-grid,.summary { grid-template-columns:1fr; } .section-heading { align-items:flex-start; } }

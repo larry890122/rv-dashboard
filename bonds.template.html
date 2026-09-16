@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LUAC 單券到期年限、Yield 與 OAS 相對價值比較。">
+  <title>單券相對價值比較表</title>
+  <link rel="icon" href="data:,">
+  <link rel="canonical" href="https://larry890122.github.io/rv-dashboard/bonds.html">
+  <link rel="stylesheet" href="assets/site.css">
+  <link rel="stylesheet" href="assets/bonds.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header"><div class="nav-shell"><a class="brand" href="./">RV 相對價值</a><nav class="site-nav" aria-label="主要導覽"><a href="https://larry890122.github.io/ib-knowledge-base/">券商報告知識庫</a><a href="./">RV 相對價值</a><a href="bonds.html" aria-current="page">單券相對價值比較表</a><a href="update.html">更新資料</a></nav></div></header>
+  <main id="main-content" class="bond-shell">
+    <div class="bond-heading"><div><p class="bond-kicker">LUAC / SINGLE-BOND RELATIVE VALUE</p><h1>單券相對價值比較表</h1></div><p class="bond-date">資料日期 <time datetime="{{LUAC_DATE_ISO}}">{{LUAC_DATE_DISPLAY}}</time><br><strong id="bond-total">載入中</strong> · 歷史快照，非即時行情</p></div>
+
+    <section class="bond-controls" aria-labelledby="filter-title">
+      <div class="control-heading"><div><h2 id="filter-title">篩選與顯示</h2><p>預設顯示 AAA 至 BBB。拖移三層篩選可改變選項連動順序；圖表與表格始終套用全部條件。</p></div><button id="reset-filters" class="bond-button secondary" type="button">重設</button></div>
+      <div class="control-grid">
+        <fieldset class="metric-control"><legend>Y 軸指標</legend><div class="segmented"><label><input type="radio" name="bond-metric" value="yield_pct" checked><span>Yield</span></label><label><input type="radio" name="bond-metric" value="oas_bp"><span>OAS Spread</span></label></div></fieldset>
+        <fieldset><legend>顯示</legend><label class="switch"><input id="show-curves" type="checkbox" checked>趨勢曲線</label><label class="switch"><input id="show-outliers" type="checkbox">異常值</label></fieldset>
+        <label class="sort-control">點位顏色<select id="point-group"><option value="band">信評大類</option><option value="industry">產業</option><option value="ticker">Ticker</option></select></label>
+        <label class="sort-control">曲線分類<select id="curve-group"><option value="band">信評大類</option><option value="industry">產業</option></select></label>
+        <label class="search-control">搜尋個券或 ID<input id="bond-search" type="search" placeholder="輸入 SECURITY_DES 或 ID"></label>
+        <label class="sort-control">結果排序<select id="bond-sort"><option value="residual-desc">高於曲線</option><option value="residual-asc">低於曲線</option><option value="yield-desc">Yield 高至低</option><option value="oas-desc">OAS 高至低</option><option value="maturity-asc">期限短至長</option><option value="issuer-asc">發行人 A–Z</option><option value="ticker-asc">Ticker A–Z</option></select></label>
+      </div>
+      <p id="grouping-notice" class="grouping-notice" role="status" aria-live="polite"></p>
+      <div id="filter-grid" class="filter-grid" aria-label="階層篩選；可拖移排序">
+        <section class="filter-card" data-filter="rating">
+          <header class="filter-card-header"><button class="drag-handle" type="button" aria-label="拖移信評篩選" title="拖移排序">⠿</button><span class="filter-order">1</span><strong>精確信評 <span id="rating-summary"></span></strong><span class="filter-move"><button type="button" data-filter-move="up" aria-label="信評篩選上移">↑</button><button type="button" data-filter-move="down" aria-label="信評篩選下移">↓</button></span></header>
+          <div class="filter-actions"><button type="button" data-filter-action="all" data-filter="rating">全選</button><button type="button" data-filter-action="none" data-filter="rating">清除</button></div><div id="rating-filter" class="check-list compact"></div>
+        </section>
+        <section class="filter-card" data-filter="industry">
+          <header class="filter-card-header"><button class="drag-handle" type="button" aria-label="拖移產業篩選" title="拖移排序">⠿</button><span class="filter-order">2</span><strong>產業 <span id="industry-summary"></span></strong><span class="filter-move"><button type="button" data-filter-move="up" aria-label="產業篩選上移">↑</button><button type="button" data-filter-move="down" aria-label="產業篩選下移">↓</button></span></header>
+          <label class="mini-search">搜尋<input type="search" data-list-search="industry"></label><div class="filter-actions"><button type="button" data-filter-action="all" data-filter="industry">全選</button><button type="button" data-filter-action="none" data-filter="industry">清除（不限）</button></div><div id="industry-filter" class="check-list"></div>
+        </section>
+        <section class="filter-card" data-filter="ticker">
+          <header class="filter-card-header"><button class="drag-handle" type="button" aria-label="拖移 Ticker 篩選" title="拖移排序">⠿</button><span class="filter-order">3</span><strong>Ticker <span id="ticker-summary"></span></strong><span class="filter-move"><button type="button" data-filter-move="up" aria-label="Ticker 篩選上移">↑</button><button type="button" data-filter-move="down" aria-label="Ticker 篩選下移">↓</button></span></header>
+          <label class="mini-search">搜尋<input type="search" data-list-search="ticker"></label><div class="filter-actions"><button type="button" data-filter-action="none" data-filter="ticker">清除（不限）</button></div><div id="ticker-filter" class="check-list"></div>
+        </section>
+      </div>
+    </section>
+
+    <p id="bond-status" class="bond-status" role="status" aria-live="polite">正在載入資料…</p>
+    <section class="bond-chart-card" aria-labelledby="chart-title">
+      <header><div><h2 id="chart-title">Maturity × Yield</h2><p id="chart-subtitle">依信評大類顯示點位與曲線</p></div><div class="chart-actions"><button id="zoom-reset" class="bond-button secondary" type="button">重設縮放</button></div></header>
+      <div id="curve-legend" class="curve-legend" aria-label="圖表圖例"></div>
+      <div class="canvas-wrap" id="canvas-wrap" tabindex="0" role="img" aria-label="單券相對價值散點圖；可使用鼠標滾輪縮放並拖曳平移。表格提供相同資料的鍵盤操作方式。"><canvas id="bond-canvas"></canvas></div>
+      <p class="chart-help">橫軸限制為 0Y–50Y。移到或點選資料點可查看 Yield、OAS Spread 與單券資訊；滾輪縮放，拖曳平移。</p>
+    </section>
+
+    <section class="bond-table-card" aria-labelledby="table-title">
+      <header><div><h2 id="table-title">篩選結果</h2><p id="table-summary"></p></div><div class="pager"><button id="page-prev" class="bond-button secondary" type="button">上一頁</button><span id="page-label"></span><button id="page-next" class="bond-button secondary" type="button">下一頁</button></div></header>
+      <div class="table-scroll"><table><thead><tr><th scope="col">單券</th><th scope="col">發行人／Ticker</th><th scope="col">Maturity</th><th scope="col">信評</th><th scope="col">Yield</th><th scope="col">OAS</th><th scope="col" id="residual-heading">Yield − curve</th></tr></thead><tbody id="bond-rows"></tbody></table></div>
+    </section>
+    <aside class="bond-note"><h2>如何閱讀</h2><p>曲線差異為單券數值減去目前曲線分類下、相同期限的 LOWESS 趨勢值。曲線母體套用信評、產業與 Ticker 篩選，但不受個券搜尋影響；正值代表位於曲線上方，負值代表位於曲線下方。</p><p>每組曲線至少需要 20 筆有效樣本，且涵蓋 5Y、7Y、10Y 與 30Y 期限帶。被標記為資料異常的記錄仍保留在公開快照與結果表，但預設不進入散點圖或曲線。</p></aside>
+  </main>
+  <div id="bond-tooltip" class="bond-tooltip" role="tooltip" hidden></div>
+  <script src="assets/luac-model.js?v={{LUAC_DATE_ISO}}" defer></script>
+  <script src="assets/bonds.js?v={{LUAC_DATE_ISO}}" defer></script>
+  <footer class="site-footer"><span>公開摘要版｜資料僅供研究參考，不構成投資建議。</span><span>內容來源：經驗證的 LUAC 資料快照</span></footer>
+</body>
+</html>

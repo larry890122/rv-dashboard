@@ -11,7 +11,7 @@
 </head>
 <body>
   <a class="skip-link" href="#main-content">跳到主要內容</a>
-  <header class="site-header"><div class="nav-shell"><a class="brand" href="./">RV 相對價值</a><nav class="site-nav" aria-label="主要導覽"><a href="https://larry890122.github.io/ib-knowledge-base/">券商報告知識庫</a><a href="./">RV 相對價值</a><a href="update.html" aria-current="page">更新資料</a></nav></div></header>
+  <header class="site-header"><div class="nav-shell"><a class="brand" href="./">RV 相對價值</a><nav class="site-nav" aria-label="主要導覽"><a href="https://larry890122.github.io/ib-knowledge-base/">券商報告知識庫</a><a href="./">RV 相對價值</a><a href="bonds.html">單券相對價值比較表</a><a href="update.html" aria-current="page">更新資料</a></nav></div></header>
   <main id="main-content" class="upload-shell">
     <p class="upload-kicker">LOCAL EXCEL VALIDATION</p>
     <h1>更新 RV 資料</h1>
@@ -43,8 +43,21 @@
       <div id="publish-status" class="status neutral" role="status" aria-live="polite">尚未送出。</div>
     </section>
 
+    <section class="upload-card luac-upload" aria-labelledby="luac-title">
+      <p class="upload-kicker">LUAC VALUE WORKBOOK</p>
+      <div class="section-heading"><div><h2 id="luac-title">單券相對價值資料</h2><p>選取一份無公式的 LUAC 純值 Excel。系統會在本機合併靜態與行情區塊，只傳送精簡後的公開資料。</p></div><button id="clear-luac" class="button secondary" type="button">清除</button></div>
+      <label class="file-slot luac-file"><strong>LUAC 純值 Excel</strong><span>必要欄位：ID、單券、發行人、Ticker、到期日、信評、期限、OAS、Yield、產業</span><input id="luac-file" type="file" accept=".xlsx"><output id="luac-file-name">尚未選取</output></label>
+      <div class="actions"><button id="validate-luac" class="button primary" type="button">在本機驗證</button></div>
+      <div id="luac-validation-status" class="status neutral" role="status" aria-live="polite">等待選取 LUAC 純值 Excel。</div>
+      <dl id="luac-validation-summary" class="summary" hidden><div><dt>資料日期</dt><dd id="luac-summary-date"></dd></div><div><dt>債券筆數</dt><dd id="luac-summary-count"></dd></div><div><dt>異常記錄</dt><dd id="luac-summary-anomalies"></dd></div></dl>
+      <label class="password-field">上傳密碼<input id="luac-upload-password" type="password" autocomplete="current-password" disabled></label>
+      <div class="actions"><button id="publish-luac" class="button primary" type="button" disabled>開始更新單券資料</button></div>
+      <div id="luac-publish-status" class="status neutral" role="status" aria-live="polite">尚未送出。</div>
+    </section>
+
     <aside class="privacy-note"><strong>隱私保護</strong>：原始 Excel、檔名、路徑與來源雜湊不會傳送或保存。離開本頁後，瀏覽器記憶體內的解析結果會消失。</aside>
   </main>
+  <script src="assets/luac-model.js" defer></script>
   <script src="assets/update.js" defer></script>
 </body>
 </html>
