@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
   pages: write
   id-token: write
 
@@ -21,25 +22,102 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: Classify validation scope
+        id: validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          EXPECTED_ACTOR: ${{ vars.RV_UPLOAD_APP_LOGIN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          changed="$RUNNER_TEMP/rv-changed-files.txt"
+          has_label=false
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            gh pr diff "$PR_URL" --name-only > "$changed"
+            base_sha="$PR_BASE_SHA"
+            if [ -n "$EXPECTED_ACTOR" ] && [ "$ACTOR" = "$EXPECTED_ACTOR" ]; then
+              for attempt in 1 2 3; do
+                if gh pr view "$PR_URL" --json labels --jq '.labels[].name' | grep -Fxq automated-rv-data; then
+                  has_label=true
+                  break
+                fi
+                sleep 5
+              done
+            fi
+          else
+            base_sha="$BEFORE_SHA"
+            if [ -z "$base_sha" ] || echo "$base_sha" | grep -Eq '^0+$'; then
+              base_sha="$(git rev-parse HEAD^)"
+            fi
+            git diff --name-only "$base_sha" "$GITHUB_SHA" > "$changed"
+          fi
+          label_option=()
+          if [ "$has_label" = true ]; then label_option=(--has-label); fi
+          mode="$(python3 scripts/ci_validation_mode.py \
+            --event "$EVENT_NAME" \
+            --actor "$ACTOR" \
+            --expected-actor "$EXPECTED_ACTOR" \
+            --head-ref "$HEAD_REF" \
+            --head-repo "$HEAD_REPO" \
+            --repository "$REPOSITORY" \
+            "${label_option[@]}" < "$changed")"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "Validation mode: $mode"
+      - name: Build site for fast data validation
+        if: steps.validation.outputs.mode == 'data'
+        run: python3 publish.py --build-only
+      - name: Validate automated data update
+        if: steps.validation.outputs.mode == 'data'
+        env:
+          BASE_SHA: ${{ steps.validation.outputs.base_sha }}
+        run: |
+          if ! git cat-file -e "$BASE_SHA:assets/rv-data.json" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          fi
+          git show "$BASE_SHA:assets/rv-data.json" > "$RUNNER_TEMP/rv-data-previous.json"
+          python3 scripts/validate_fast_data.py \
+            --current assets/rv-data.json \
+            --previous "$RUNNER_TEMP/rv-data-previous.json" \
+            --public-root public
       - uses: actions/setup-node@v4
+        if: steps.validation.outputs.mode == 'full'
         with:
           node-version: "22"
       - uses: pnpm/action-setup@v4
+        if: steps.validation.outputs.mode == 'full'
         with:
           version: 11.19.0
           run_install: false
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: python3 publish.py --build-only
-      - run: python3 -m unittest discover -s tests -v
-      - run: pnpm run test:model
-      - run: pnpm run test:worker
-      - run: pnpm run check:worker
-      - run: python3 peer_status.py
+      - if: steps.validation.outputs.mode == 'full'
+        run: pnpm install --frozen-lockfile
+      - if: steps.validation.outputs.mode == 'full'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: steps.validation.outputs.mode == 'full'
+        run: python3 publish.py --build-only
+      - if: steps.validation.outputs.mode == 'full'
+        run: python3 -m unittest discover -s tests -v
+      - if: steps.validation.outputs.mode == 'full'
+        run: pnpm run test:model
+      - if: steps.validation.outputs.mode == 'full'
+        run: pnpm run test:worker
+      - if: steps.validation.outputs.mode == 'full'
+        run: pnpm run check:worker
+      - if: steps.validation.outputs.mode == 'full'
+        run: python3 peer_status.py
       - name: Browser regression
+        if: steps.validation.outputs.mode == 'full'
         run: |
           python3 -m http.server 8766 --directory public &
           server_pid=$!
@@ -89,15 +167,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr diff "$PR_URL" --name-only | python3 scripts/verify_data_only_pr.py
-      - name: Merge verified data update
+      - name: Enable verified data auto-merge
         env:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge "$PR_URL" --squash --delete-branch
-      - name: Trigger main deployment
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: gh pr merge "$PR_URL" --auto --squash --delete-branch --match-head-commit "$HEAD_SHA"
+      - name: Wait for merge then trigger main deployment
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          for attempt in $(seq 1 60); do
+            state="$(gh pr view "$PR_URL" --json state --jq .state)"
+            if [ "$state" = "MERGED" ]; then
+              gh workflow run pages.yml --ref main
+              exit 0
+            fi
+            if [ "$state" = "CLOSED" ]; then
+              echo "Data PR closed before merge."
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for GitHub auto-merge."
+          exit 1
 
   auto-merge-luac-data:
     if: >-
@@ -122,12 +216,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr diff "$PR_URL" --name-only | python3 scripts/verify_luac_data_only_pr.py
-      - name: Merge verified LUAC data update
+      - name: Enable verified LUAC data auto-merge
         env:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge "$PR_URL" --squash --delete-branch
-      - name: Trigger main deployment
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: gh pr merge "$PR_URL" --auto --squash --delete-branch --match-head-commit "$HEAD_SHA"
+      - name: Wait for merge then trigger main deployment
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          for attempt in $(seq 1 60); do
+            state="$(gh pr view "$PR_URL" --json state --jq .state)"
+            if [ "$state" = "MERGED" ]; then
+              gh workflow run pages.yml --ref main
+              exit 0
+            fi
+            if [ "$state" = "CLOSED" ]; then
+              echo "LUAC data PR closed before merge."
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for LUAC auto-merge."
+          exit 1
