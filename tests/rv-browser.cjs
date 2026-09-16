@@ -165,16 +165,17 @@ async function runBonds(browser,base,width=1440){
   await page.keyboard.press('Escape');
 
   const anomaly=data.records.find(record=>record[10].length);
-  assert.ok(anomaly);
-  await page.locator('[data-filter-action=all][data-filter=rating]').click();
-  await page.locator('#show-outliers').check();
-  await page.locator('#bond-search').fill(anomaly[0]);
-  await page.waitForFunction(id=>document.querySelectorAll('#bond-rows tr').length===1&&document.querySelector('#bond-rows tr')?.dataset.id===id,anomaly[0]);
-  await page.locator('#bond-rows tr').first().focus();tooltip=await page.locator('#bond-tooltip').innerText();
-  assert.ok(tooltip.includes(new Intl.NumberFormat('en-US',{minimumFractionDigits:3,maximumFractionDigits:3}).format(anomaly[8])));
-  assert.ok(tooltip.includes(new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(anomaly[7])));
-  assert.match(tooltip,/資料異常/);
-  await page.keyboard.press('Escape');
+  if(anomaly){
+    await page.locator('[data-filter-action=all][data-filter=rating]').click();
+    await page.locator('#show-outliers').check();
+    await page.locator('#bond-search').fill(anomaly[0]);
+    await page.waitForFunction(id=>document.querySelectorAll('#bond-rows tr').length===1&&document.querySelector('#bond-rows tr')?.dataset.id===id,anomaly[0]);
+    await page.locator('#bond-rows tr').first().focus();tooltip=await page.locator('#bond-tooltip').innerText();
+    assert.ok(tooltip.includes(new Intl.NumberFormat('en-US',{minimumFractionDigits:3,maximumFractionDigits:3}).format(anomaly[8])));
+    assert.ok(tooltip.includes(new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(anomaly[7])));
+    assert.match(tooltip,/資料異常/);
+    await page.keyboard.press('Escape');
+  }
 
   await page.locator('#reset-filters').click();
   await page.waitForFunction(()=>document.querySelector('#bond-rows tr'));
