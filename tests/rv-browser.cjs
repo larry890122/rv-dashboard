@@ -110,7 +110,7 @@ async function runBonds(browser,base,width=1440){
     const matching=data.records.filter(record=>record[5]===exactRating),industries=[...new Set(matching.map(record=>record[9]))].sort(),tickers=[...new Set(matching.map(record=>record[3]))].sort();
     assert.deepEqual((await page.locator('#industry-filter input').evaluateAll(inputs=>inputs.map(input=>input.value))).sort(),industries);
     assert.deepEqual((await page.locator('#ticker-filter input').evaluateAll(inputs=>inputs.map(input=>input.value))).sort(),tickers);
-    assert.ok((await page.locator('#bond-rows tr td:nth-child(4)').allInnerTexts()).every(rating=>rating===exactRating));
+    assert.ok((await page.locator('#bond-rows tr td:nth-child(5)').allInnerTexts()).every(rating=>rating===exactRating));
 
     await page.locator('#point-group').selectOption('industry');
     assert.equal(await page.locator('#point-group').inputValue(),'band');
@@ -129,6 +129,22 @@ async function runBonds(browser,base,width=1440){
     await page.locator('#bond-search').fill('');await page.locator('#ticker-filter input:checked').first().evaluate(input=>input.click());
     assert.equal(await page.locator('#point-group').inputValue(),'band');assert.match(await page.locator('#grouping-notice').innerText(),/已改回信評大類/);
     await page.locator('#reset-filters').click();
+
+    const scrollResult=await page.locator('#ticker-filter').evaluate(container=>{container.scrollTop=120;const input=container.querySelectorAll('input')[15];input.focus({preventScroll:true});const before=container.scrollTop,value=input.value;input.click();return new Promise(resolve=>requestAnimationFrame(()=>resolve({before,after:container.scrollTop,active:document.activeElement?.value,value})));});
+    assert.ok(Math.abs(scrollResult.after-scrollResult.before)<=1,'checking a filter must preserve list scroll');
+    assert.equal(scrollResult.active,scrollResult.value,'checking a filter must preserve focus');
+    await page.locator('#curve-group').selectOption('industry');
+    assert.equal(await page.locator('#curve-group').inputValue(),'industry','effective ticker-filtered industries should enable industry curves');
+    await page.locator('#curve-source').selectOption('all');
+    assert.match(await page.locator('#curve-legend').innerText(),/全樣本/);
+    await page.locator('#reset-filters').click();
+
+    const yieldHeader=page.locator('th[data-sort=yield]');
+    await yieldHeader.locator('button').click();assert.equal(await yieldHeader.getAttribute('aria-sort'),'descending');
+    await yieldHeader.locator('button').click();assert.equal(await yieldHeader.getAttribute('aria-sort'),'ascending');
+    const yields=(await page.locator('#bond-rows tr td:nth-child(6)').allInnerTexts()).map(value=>Number(value.replace(/[% ,]/g,'')));
+    assert.deepEqual(yields,[...yields].sort((a,b)=>a-b));
+    await page.locator('#reset-filters').click();
   }
 
   let row=page.locator('#bond-rows tr').first();
@@ -137,7 +153,7 @@ async function runBonds(browser,base,width=1440){
   assert.match(tooltip,/Yield/);
   assert.match(tooltip,/OAS Spread/);
   assert.match(tooltip,/Yield − curve/);
-  const residual=(await row.locator('td').nth(6).innerText()).trim();
+  const residual=(await row.locator('td').nth(7).innerText()).trim();
   if(residual!=='n.a.')assert.ok(tooltip.includes(residual));
   await page.keyboard.press('Enter');
   assert.equal(await page.locator('#bond-tooltip').isVisible(),true);
@@ -205,10 +221,10 @@ function fixtures(root,variant,date) {
   return Object.fromEntries(Object.entries(FILES).map(([metric,name])=>[metric,join(output,name)]));
 }
 
-async function openUploader(browser,base,expectedDate,width=1440,currentLuacDate='2026-09-15',currentLuacCount=40) {
+async function openUploader(browser,base,expectedDate,width=1440,currentLuacDate='2026-09-15',currentLuacCount=40,bridge=false) {
   const context=await browser.newContext({viewport:{width,height:1000},hasTouch:width<650});
   const page=await context.newPage();
-  const requests=[];
+  const requests=[],bridgeRequests=[];
   await page.route('**/assets/upload-config.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({enabled:true,luac_enabled:true,api_url:'https://rv-upload-service.example.workers.dev'})}));
   await page.route('**/assets/luac-bonds.json*',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({date:currentLuacDate,records:Array.from({length:currentLuacCount},()=>[])})}));
   await page.route('https://rv-upload-service.example.workers.dev/**',async route=>{
@@ -222,9 +238,10 @@ async function openUploader(browser,base,expectedDate,width=1440,currentLuacDate
     if(request.url().endsWith('/health')) return route.fulfill({contentType:'text/plain',body:'RV Upload Service OK'});
     return route.fulfill({status:404,body:'not found'});
   });
-  await page.goto(base+'update.html');
+  if(bridge)await page.route('http://127.0.0.1:8768/**',route=>{const request=route.request();bridgeRequests.push({url:request.url(),body:request.postData()});if(request.url().endsWith('/health'))return route.fulfill({contentType:'application/json',body:JSON.stringify({ready:true})});return route.fulfill({contentType:'application/json',body:JSON.stringify({connected:true,reference_ok:true,universe_ok:true,count:40,required_field_coverage_pct:100,ids_match:true,industry_match:true,max_oas_diff_bp:.4,max_yield_diff_pct:.009,passed:true,error_class:null})});});
+  await page.goto(base+`update.html${bridge?'#bbg-token='+'b'.repeat(64):''}`);
   await page.waitForFunction(()=>document.querySelector('#service-state')?.textContent.includes('已啟用'));
-  return {context,page,requests};
+  return {context,page,requests,bridgeRequests};
 }
 
 async function selectFour(page,files) {
@@ -266,13 +283,15 @@ function luacFixture(root,variant,date,count=40){
   return output;
 }
 
-async function runValidLuacUpload(browser,base,width,file,expectedDate,currentDate){
+async function runValidLuacUpload(browser,base,width,file,expectedDate,currentDate,bql=false){
   const {context,page,requests}=await openUploader(browser,base,expectedDate,width,currentDate);
   await page.locator('#luac-file').setInputFiles(file);
   await page.locator('#validate-luac').click();
   await page.locator('#luac-validation-status.success').waitFor();
   assert.equal(await page.locator('#luac-summary-date').innerText(),expectedDate);
   assert.equal(await page.locator('#luac-summary-count').innerText(),'40');
+  assert.equal(await page.locator('#luac-summary-source').innerText(),bql?'BQL 已儲存快取':'純值 Excel');
+  if(bql){assert.equal(await page.locator('#publish-luac').isDisabled(),true);await page.locator('#bql-confirm').check();}
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${width}/luac uploader overflow`);
   await page.locator('#luac-upload-password').fill('company password');
   await page.locator('#publish-luac').click();
@@ -284,6 +303,25 @@ async function runValidLuacUpload(browser,base,width,file,expectedDate,currentDa
   assert.equal(JSON.parse(publish.body).data.date,expectedDate);
   const python=JSON.parse(execFileSync('python3',['scripts/extract_luac.py',file],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
   assert.deepEqual(JSON.parse(publish.body).data,python,'browser and Python LUAC extraction must match');
+  await context.close();
+}
+
+async function runSameDateLuacReview(browser,base,file,currentDate){
+  const {context,page,requests}=await openUploader(browser,base,currentDate,1440,currentDate);
+  await page.locator('#luac-file').setInputFiles(file);await page.locator('#validate-luac').click();await page.locator('#luac-validation-status.success').waitFor();
+  assert.match(await page.locator('#luac-validation-status').innerText(),/人工 PR/);
+  assert.equal(await page.locator('#publish-luac').isDisabled(),true);
+  assert.equal(requests.some(item=>item.url.endsWith('/publish/luac')),false);
+  await context.close();
+}
+
+async function runBloombergDiagnostic(browser,base,file,currentDate){
+  const {context,page,requests,bridgeRequests}=await openUploader(browser,base,currentDate,1440,currentDate,40,true);
+  await page.locator('#bloomberg-diagnostic').waitFor({state:'visible'});
+  await page.locator('#luac-file').setInputFiles(file);await page.locator('#validate-luac').click();await page.locator('#luac-validation-status.success').waitFor();await page.locator('#bql-confirm').check();
+  await page.locator('#probe-bloomberg').click();await page.locator('#bloomberg-status.success').waitFor();
+  const probe=bridgeRequests.find(item=>item.url.endsWith('/probe'));assert.ok(probe);assert.deepEqual(Object.keys(JSON.parse(probe.body)),['data']);assert.equal(/\.xlsx|source_file|sha256|\/Users\//i.test(probe.body),false);
+  assert.equal(requests.some(item=>item.url.endsWith('/publish/luac')),false,'diagnostic must not call the Worker publish endpoint');
   await context.close();
 }
 
@@ -323,11 +361,15 @@ if(require.main===module) (async()=>{
     const nextLuacDate=new Date(`${currentLuacDate}T00:00:00Z`);nextLuacDate.setUTCDate(nextLuacDate.getUTCDate()+1);
     const expectedLuacDate=nextLuacDate.toISOString().slice(0,10),luacValid=luacFixture(temporary,'valid',expectedLuacDate);
     for(const width of [1440,768,375])await runValidLuacUpload(browser,base,width,luacValid,expectedLuacDate,currentLuacDate);
-    await runInvalidLuacUpload(browser,base,luacFixture(temporary,'formula',expectedLuacDate),/只接受無公式/,currentLuacDate);
+    await runValidLuacUpload(browser,base,1440,luacFixture(temporary,'bql',expectedLuacDate),expectedLuacDate,currentLuacDate,true);
+    await runInvalidLuacUpload(browser,base,luacFixture(temporary,'formula',expectedLuacDate),/只允許一個 BQL 公式/,currentLuacDate);
+    await runInvalidLuacUpload(browser,base,luacFixture(temporary,'bql-no-cache',expectedLuacDate),/沒有已儲存的快取值/,currentLuacDate);
+    await runInvalidLuacUpload(browser,base,luacFixture(temporary,'level3',expectedLuacDate),/欄位不符合必要格式/,currentLuacDate);
     await runInvalidLuacUpload(browser,base,luacFixture(temporary,'nonfinite',expectedLuacDate),/OAS.*無效/,currentLuacDate);
     await runInvalidLuacUpload(browser,base,luacFixture(temporary,'mismatch',expectedLuacDate),/ID 必須完整一致/,currentLuacDate);
     await runInvalidLuacUpload(browser,base,luacFixture(temporary,'mixed-date',expectedLuacDate),/資料日期不一致/,currentLuacDate);
-    await runInvalidLuacUpload(browser,base,luacFixture(temporary,'valid',currentLuacDate),/必須晚於正式站/,currentLuacDate);
+    await runSameDateLuacReview(browser,base,luacFixture(temporary,'valid',currentLuacDate),currentLuacDate);
+    await runBloombergDiagnostic(browser,base,luacFixture(temporary,'bql',currentLuacDate),currentLuacDate);
     await runInvalidLuacUpload(browser,base,luacFixture(temporary,'valid',expectedLuacDate,25),/超過 ±20%/,currentLuacDate);
     console.log('browser tests PASS');
   }

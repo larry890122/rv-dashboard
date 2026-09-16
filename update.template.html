@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.workers.dev; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.workers.dev http://127.0.0.1:8768; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
   <title>更新 RV 資料</title>
   <link rel="stylesheet" href="assets/site.css">
-  <link rel="stylesheet" href="assets/update.css">
+  <link rel="stylesheet" href="assets/update.css?v={{UPDATE_VERSION}}">
 </head>
 <body>
   <a class="skip-link" href="#main-content">跳到主要內容</a>
@@ -45,11 +45,13 @@
 
     <section class="upload-card luac-upload" aria-labelledby="luac-title">
       <p class="upload-kicker">LUAC VALUE WORKBOOK</p>
-      <div class="section-heading"><div><h2 id="luac-title">單券相對價值資料</h2><p>選取一份無公式的 LUAC 純值 Excel。系統會在本機合併靜態與行情區塊，只傳送精簡後的公開資料。</p></div><button id="clear-luac" class="button secondary" type="button">清除</button></div>
-      <label class="file-slot luac-file"><strong>LUAC 純值 Excel</strong><span>必要欄位：ID、單券、發行人、Ticker、到期日、信評、期限、OAS、Yield、產業</span><input id="luac-file" type="file" accept=".xlsx"><output id="luac-file-name">尚未選取</output></label>
+      <div class="section-heading"><div><h2 id="luac-title">單券相對價值資料</h2><p>可選取純值 Excel，或包含一個 BQL 公式且已完成更新、儲存快取值的 Excel。系統只傳送精簡後的公開資料。</p></div><button id="clear-luac" class="button secondary" type="button">清除</button></div>
+      <label class="file-slot luac-file"><strong>LUAC Excel</strong><span>產業必須使用 BICS Level 1；其他公式一律拒絕</span><input id="luac-file" type="file" accept=".xlsx"><output id="luac-file-name">尚未選取</output></label>
       <div class="actions"><button id="validate-luac" class="button primary" type="button">在本機驗證</button></div>
-      <div id="luac-validation-status" class="status neutral" role="status" aria-live="polite">等待選取 LUAC 純值 Excel。</div>
-      <dl id="luac-validation-summary" class="summary" hidden><div><dt>資料日期</dt><dd id="luac-summary-date"></dd></div><div><dt>債券筆數</dt><dd id="luac-summary-count"></dd></div><div><dt>異常記錄</dt><dd id="luac-summary-anomalies"></dd></div></dl>
+      <div id="luac-validation-status" class="status neutral" role="status" aria-live="polite">等待選取 LUAC Excel。</div>
+      <dl id="luac-validation-summary" class="summary" hidden><div><dt>資料日期</dt><dd id="luac-summary-date"></dd></div><div><dt>債券筆數</dt><dd id="luac-summary-count"></dd></div><div><dt>異常記錄</dt><dd id="luac-summary-anomalies"></dd></div><div><dt>來源模式</dt><dd id="luac-summary-source"></dd></div></dl>
+      <label id="bql-confirm-wrap" class="confirmation" hidden><input id="bql-confirm" type="checkbox">我已在 Excel 完成 BQL 更新、等待計算完成並儲存檔案；我了解網站使用的是最後儲存的快取值。</label>
+      <section id="bloomberg-diagnostic" class="diagnostic-panel" hidden aria-labelledby="bloomberg-title"><h3 id="bloomberg-title">Bloomberg Desktop API 診斷</h3><p>此功能只連線本機 Bloomberg bridge，比對結果不會建立 PR 或傳送到 Worker。</p><div class="actions"><button id="probe-bloomberg" class="button secondary" type="button" disabled>測試 Bloomberg API</button></div><div id="bloomberg-status" class="status neutral" role="status" aria-live="polite">等待有效的本機 Bloomberg session。</div><dl id="bloomberg-summary" class="summary" hidden></dl></section>
       <label class="password-field">上傳密碼<input id="luac-upload-password" type="password" autocomplete="current-password" disabled></label>
       <div class="actions"><button id="publish-luac" class="button primary" type="button" disabled>開始更新單券資料</button></div>
       <div id="luac-publish-status" class="status neutral" role="status" aria-live="polite">尚未送出。</div>
@@ -57,7 +59,7 @@
 
     <aside class="privacy-note"><strong>隱私保護</strong>：原始 Excel、檔名、路徑與來源雜湊不會傳送或保存。離開本頁後，瀏覽器記憶體內的解析結果會消失。</aside>
   </main>
-  <script src="assets/luac-model.js" defer></script>
-  <script src="assets/update.js" defer></script>
+  <script src="assets/luac-model.js?v={{UPDATE_VERSION}}" defer></script>
+  <script src="assets/update.js?v={{UPDATE_VERSION}}" defer></script>
 </body>
 </html>

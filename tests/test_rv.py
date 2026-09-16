@@ -54,7 +54,7 @@ class RVTests(unittest.TestCase):
         update_page = (self.public / "update.html").read_text(encoding="utf-8")
         self.assertIn("四份 Excel", update_page)
         self.assertIn("LUAC", update_page)
-        self.assertIn('assets/update.js', update_page)
+        self.assertRegex(update_page, r'assets/update\.js\?v=[0-9a-f]{10}')
 
     def test_integration_manifest(self):
         manifest = json.loads((self.public / "integration-manifest.json").read_text(encoding="utf-8"))

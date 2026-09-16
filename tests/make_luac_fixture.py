@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create small formula-free LUAC workbooks for strict extractor tests."""
+"""Create small LUAC workbooks for strict extractor tests."""
 
 from __future__ import annotations
 
@@ -35,8 +35,15 @@ def cell(column: int, row: int, value: object, formula: str | None = None) -> st
     return f'<c r="{ref}">{formula_xml}<v>{value}</v></c>'
 
 
+def formula_without_cache(column: int, row: int, formula: str) -> str:
+    return f'<c r="{address(column, row)}"><f>{html.escape(formula)}</f></c>'
+
+
 def make_fixture(path: Path, variant: str = "valid", data_date: str = "2026-09-16", count: int = 40) -> Path:
-    rows = ["<row r=\"1\">" + "".join(cell(index, 1, value) for index, value in enumerate(HEADERS, 1)) + "</row>"]
+    headers = list(HEADERS)
+    if variant == "level3":
+        headers[-1] = "CLASSIFICATION_NAME(BICS,3,TYPE=ISSUER)"
+    rows = ["<row r=\"1\">" + "".join(cell(index, 1, value) for index, value in enumerate(headers, 1)) + "</row>"]
     for index in range(count):
         row = index + 2
         identifier = f"US000000{index:04d}"
@@ -66,8 +73,11 @@ def make_fixture(path: Path, variant: str = "valid", data_date: str = "2026-09-1
         for column, value in values.items():
             if value == "":
                 continue
-            formula = "100+20" if variant == "formula" and index == 0 and column == 9 else None
-            contents.append(cell(column, row, value, formula))
+            formula = "100+20" if variant == "formula" and index == 0 and column == 9 else "BQL(\"cached query\")" if variant == "bql" and index == 0 and column == 9 else None
+            if variant == "bql-no-cache" and index == 0 and column == 9:
+                contents.append(formula_without_cache(column, row, "BQL(\"cached query\")"))
+            else:
+                contents.append(cell(column, row, value, formula))
         rows.append(f'<row r="{row}">' + "".join(contents) + "</row>")
 
     sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' \

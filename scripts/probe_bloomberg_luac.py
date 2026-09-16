@@ -27,7 +27,7 @@ FIELDS = {
     "maturity_years": "MTY_YEARS_TDY",
     "oas_bp": "OAS_SPREAD_BID",
     "yield_pct": "YLD_YTM_BID",
-    "industry": "BICS_LEVEL_3_INDUSTRY_NAME",
+    "industry": "BICS_LEVEL_1_SECTOR_NAME",
 }
 
 
@@ -126,7 +126,42 @@ def universe_members(blpapi, session, universe: str, field: str) -> list[str]:
                             break
         if event.eventType() == blpapi.Event.RESPONSE:
             break
-    return list(dict.fromkeys(members))
+    return members
+
+
+def resolve_bics_level1_field(blpapi, session) -> str:
+    """Verify the exact BICS Level 1 field through Bloomberg field metadata."""
+    if not session.openService("//blp/apiflds"):
+        raise ConnectionError("Bloomberg field metadata service failed to open")
+    service = session.getService("//blp/apiflds")
+    request = service.createRequest("FieldSearchRequest")
+    request.set("searchSpec", "BICS Level 1 Sector Name")
+    request.set("returnFieldDocumentation", False)
+    session.sendRequest(request)
+    matches: set[str] = set()
+    while True:
+        event = session.nextEvent(30_000)
+        if event.eventType() == blpapi.Event.TIMEOUT:
+            raise TimeoutError("Bloomberg field metadata request timed out")
+        for message in event:
+            if message.hasElement("responseError"):
+                raise RuntimeError("Bloomberg field metadata response error")
+            if not message.hasElement("fieldData"):
+                continue
+            data = message.getElement("fieldData")
+            for index in range(data.numValues()):
+                item = data.getValueAsElement(index)
+                info = item.getElement("fieldInfo") if item.hasElement("fieldInfo") else item
+                for name in ("id", "mnemonic"):
+                    if info.hasElement(name):
+                        value = info.getElementAsString(name).strip()
+                        if value == FIELDS["industry"]:
+                            matches.add(value)
+        if event.eventType() == blpapi.Event.RESPONSE:
+            break
+    if matches != {FIELDS["industry"]}:
+        raise ValueError("BICS Level 1 field metadata did not resolve uniquely")
+    return matches.pop()
 
 
 def snapshot(records: dict[str, dict[str, object]], as_of: str) -> dict:
@@ -165,11 +200,19 @@ def compare(candidate: dict, baseline: dict) -> dict[str, object]:
     common = set(new) & set(old)
     max_oas = max((abs(new[key][7] - old[key][7]) for key in common), default=None)
     max_yield = max((abs(new[key][8] - old[key][8]) for key in common), default=None)
+    static_indexes=(1,2,3,4,5)
+    static_mismatches=sum(any(new[key][index]!=old[key][index] for index in static_indexes) for key in common)
+    industry_mismatches=sum(new[key][9]!=old[key][9] for key in common)
     return {
-        "ids_complete": ids_match,
+        "ids_match": ids_match,
+        "industry_match": ids_match and industry_mismatches == 0,
+        "static_mismatch_count": static_mismatches,
+        "industry_mismatch_count": industry_mismatches,
+        "max_oas_diff_bp": max_oas,
+        "max_yield_diff_pct": max_yield,
         "oas_within_0_5_bp": max_oas is not None and max_oas <= 0.5,
         "yield_within_0_01_pct_point": max_yield is not None and max_yield <= 0.01,
-        "eligible_for_api_planning": ids_match and max_oas is not None and max_oas <= 0.5 and max_yield is not None and max_yield <= 0.01,
+        "eligible_for_api_planning": ids_match and industry_mismatches == 0 and max_oas is not None and max_oas <= 0.5 and max_yield is not None and max_yield <= 0.01,
     }
 
 
@@ -194,11 +237,13 @@ def main() -> int:
         if not session.start() or not session.openService("//blp/refdata"):
             raise ConnectionError("Bloomberg Desktop API session failed to start")
         diagnostic["connected"] = True
+        resolve_bics_level1_field(blpapi, session)
         one = reference_request(blpapi, session, [args.known_security], list(FIELDS.values()))
         one_values = one.get(args.known_security, {})
         diagnostic["reference_ok"] = all(field in one_values for field in FIELDS.values())
-        members = universe_members(blpapi, session, args.universe, args.universe_field)
-        diagnostic["universe_ok"] = bool(members) and len(members) == len(set(members))
+        raw_members = universe_members(blpapi, session, args.universe, args.universe_field)
+        diagnostic["universe_ok"] = bool(raw_members) and len(raw_members) == len(set(raw_members))
+        members = list(dict.fromkeys(raw_members))
         diagnostic["count"] = len(members)
         records: dict[str, dict[str, object]] = {}
         for offset in range(0, len(members), 250):

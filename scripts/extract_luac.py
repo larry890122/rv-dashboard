@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract a sanitized LUAC bond snapshot from a formula-free value workbook."""
+"""Extract a sanitized LUAC snapshot from a value workbook or one cached BQL formula."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ HEADERS = (
     "DATES",
     "SPREAD(ST='OAS',PRICING_SOURCE=BVAL,SIDE=BID)",
     "YIELD(YT=CONVENTION,PRICING_SOURCE=BVAL,SIDE=BID)",
-    "CLASSIFICATION_NAME(BICS,3,TYPE=ISSUER)",
+    "CLASSIFICATION_NAME(BICS,1,TYPE=ISSUER)",
 )
 CELL = re.compile(r"^([A-Z]+)(\d+)$")
 
@@ -78,10 +78,18 @@ def shared_strings(archive: zipfile.ZipFile) -> list[str]:
     return ["".join(node.itertext()) for node in root.findall(f"{{{MAIN}}}si")]
 
 
-def cells(archive: zipfile.ZipFile, path: str, strings: list[str]) -> tuple[dict[tuple[int, int], object], int]:
+def cells(archive: zipfile.ZipFile, path: str, strings: list[str]) -> tuple[dict[tuple[int, int], object], int, str]:
     root = ET.fromstring(archive.read(path))
-    if root.find(f".//{{{MAIN}}}f") is not None:
-        raise ValueError("LUAC production upload accepts only a formula-free value workbook")
+    formulas = root.findall(f".//{{{MAIN}}}f")
+    source_mode = "values"
+    if formulas:
+        if len(formulas) != 1 or not re.match(r"^\s*(?:_xll\.)?BQL\s*\(", formulas[0].text or "", re.IGNORECASE):
+            raise ValueError("LUAC workbook may contain only one cached BQL formula")
+        formula_cell = next((cell for cell in root.findall(f".//{{{MAIN}}}c") if formulas[0] in list(cell)), None)
+        cached = formula_cell.find(f"{{{MAIN}}}v") if formula_cell is not None else None
+        if cached is None or cached.text in (None, ""):
+            raise ValueError("LUAC BQL formula has no saved cached value")
+        source_mode = "bql_cache"
     result: dict[tuple[int, int], object] = {}
     maximum_row = 0
     for cell in root.findall(f".//{{{MAIN}}}c"):
@@ -108,7 +116,7 @@ def cells(archive: zipfile.ZipFile, path: str, strings: list[str]) -> tuple[dict
                 except ValueError as error:
                     raise ValueError(f"Invalid numeric cell {address}") from error
         result[(row, column)] = value
-    return result, maximum_row
+    return result, maximum_row, source_mode
 
 
 def require_text(value: object, field: str, row: int) -> str:
@@ -126,7 +134,7 @@ def require_number(value: object, field: str, row: int) -> float:
 def extract(path: Path) -> dict:
     with zipfile.ZipFile(path) as archive:
         sheet_path, date_1904 = workbook_sheet(archive)
-        values, maximum_row = cells(archive, sheet_path, shared_strings(archive))
+        values, maximum_row, source_mode = cells(archive, sheet_path, shared_strings(archive))
 
     actual_headers = tuple(values.get((1, column)) for column in range(1, 12))
     if actual_headers != HEADERS:
@@ -185,6 +193,7 @@ def extract(path: Path) -> dict:
         ])
     result = {"schema_version": 1, "date": data_dates.pop(), "columns": list(COLUMNS), "records": records}
     validate_luac(result)
+    extract.source_mode = source_mode
     return result
 
 
@@ -207,10 +216,10 @@ def main() -> None:
             parser.error("Private audit must be outside the repository")
         audit_path.parent.mkdir(parents=True, exist_ok=True)
         audit_path.write_text(
-            json.dumps({"date": data["date"], "records": count, "anomalies": anomalies}, indent=2) + "\n",
+            json.dumps({"date": data["date"], "records": count, "anomalies": anomalies, "source_mode": getattr(extract, "source_mode", "values")}, indent=2) + "\n",
             encoding="utf-8",
         )
-    print(f"LUAC snapshot date={data['date']} records={count} anomalies={anomalies}", file=sys.stderr)
+    print(f"LUAC snapshot date={data['date']} records={count} anomalies={anomalies} source={getattr(extract, 'source_mode', 'values')}", file=sys.stderr)
 
 
 if __name__ == "__main__":
