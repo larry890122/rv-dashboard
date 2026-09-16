@@ -6,7 +6,7 @@
   "workers_dev": true,
   "vars": {
     "RV_UPLOAD_ENABLED": "true",
-    "LUAC_UPLOAD_ENABLED": "false",
+    "LUAC_UPLOAD_ENABLED": "true",
     "PUBLISH_MODE": "production",
     "ALLOWED_ORIGINS": "https://larry890122.github.io",
     "GITHUB_REPOSITORY": "larry890122/rv-dashboard",
