@@ -17,7 +17,7 @@
     <div class="bond-heading"><div><p class="bond-kicker">LUAC / SINGLE-BOND RELATIVE VALUE</p><h1>單券相對價值比較表</h1></div><p class="bond-date">資料日期 <time datetime="{{LUAC_DATE_ISO}}">{{LUAC_DATE_DISPLAY}}</time><br><strong id="bond-total">載入中</strong> · 歷史快照，非即時行情</p></div>
 
     <section class="bond-controls" aria-labelledby="filter-title">
-      <div class="control-heading"><div><h2 id="filter-title">篩選與顯示</h2><p>曲線依所選產業及信評重算；發行人、Ticker 與搜尋只篩選點位。</p></div><button id="reset-filters" class="bond-button secondary" type="button">重設</button></div>
+      <div class="control-heading"><div><h2 id="filter-title">篩選與顯示</h2><p>預設顯示 AAA 至 BBB；曲線依所選產業及信評重算，發行人、Ticker 與搜尋只篩選點位。</p></div><button id="reset-filters" class="bond-button secondary" type="button">重設</button></div>
       <div class="control-grid">
         <fieldset class="metric-control"><legend>Y 軸指標</legend><div class="segmented"><label><input type="radio" name="bond-metric" value="yield_pct" checked><span>Yield</span></label><label><input type="radio" name="bond-metric" value="oas_bp"><span>OAS Spread</span></label></div></fieldset>
         <fieldset><legend>顯示</legend><label class="switch"><input id="show-curves" type="checkbox" checked>趨勢曲線</label><label class="switch"><input id="show-outliers" type="checkbox">異常值</label></fieldset>
@@ -37,7 +37,7 @@
       <header><div><h2 id="chart-title">Maturity × Yield</h2><p id="chart-subtitle">依信評大類顯示點位與曲線</p></div><div class="chart-actions"><button id="zoom-reset" class="bond-button secondary" type="button">重設縮放</button></div></header>
       <div id="curve-legend" class="curve-legend" aria-label="信評圖例"></div>
       <div class="canvas-wrap" id="canvas-wrap" tabindex="0" role="img" aria-label="單券相對價值散點圖；可使用鼠標滾輪縮放並拖曳平移。表格提供相同資料的鍵盤操作方式。"><canvas id="bond-canvas"></canvas></div>
-      <p class="chart-help">移到或點選資料點可查看 Yield、OAS Spread 與單券資訊。滾輪縮放，拖曳平移。</p>
+      <p class="chart-help">橫軸限制為 0Y–50Y。移到或點選資料點可查看 Yield、OAS Spread 與單券資訊；滾輪縮放，拖曳平移。</p>
     </section>
 
     <section class="bond-table-card" aria-labelledby="table-title">

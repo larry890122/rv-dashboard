@@ -82,8 +82,11 @@ async function runBonds(browser,base,width=1440){
   assert.equal(await page.locator('#chart-title').innerText(),'Maturity × Yield');
   assert.equal(await page.locator('#bond-rows tr').count(),50);
   const uncheckedRatings=await page.locator('#rating-filter input:not(:checked)').evaluateAll(inputs=>inputs.map(input=>input.value));
+  const checkedRatings=await page.locator('#rating-filter input:checked').evaluateAll(inputs=>inputs.map(input=>input.value));
   assert.ok(uncheckedRatings.length>0);
-  assert.ok(uncheckedRatings.every(rating=>model.ratingBand(rating)==='NR'));
+  assert.ok(uncheckedRatings.every(rating=>['BB','NR'].includes(model.ratingBand(rating))));
+  assert.ok(checkedRatings.every(rating=>['AAA','AA','A','BBB'].includes(model.ratingBand(rating))));
+  assert.deepEqual(await page.locator('#bond-canvas').evaluate(canvas=>[Number(canvas.dataset.xMin),Number(canvas.dataset.xMax)]),[0,50]);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${width}/bonds overflow`);
 
   let row=page.locator('#bond-rows tr').first();
@@ -99,11 +102,11 @@ async function runBonds(browser,base,width=1440){
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#bond-tooltip').isHidden(),true);
 
-  const hoverId=data.records.find(record=>record[6]>2&&!record[10].length&&model.ratingBand(record[5])!=='NR')[0];
+  const hoverRecord=data.records.find(record=>record[6]>2&&record[6]<50&&!record[10].length&&['AAA','AA','A','BBB'].includes(model.ratingBand(record[5]))),hoverId=hoverRecord[0];
   await page.locator('#bond-search').fill(hoverId);
   await page.waitForFunction(id=>document.querySelectorAll('#bond-rows tr').length===1&&document.querySelector('#bond-rows tr')?.dataset.id===id,hoverId);
   await page.locator('#bond-canvas').scrollIntoViewIfNeeded();
-  const box=await page.locator('#bond-canvas').boundingBox(),point={x:box.x+66+(box.width-88)/2,y:box.y+24+(box.height-72)/2};
+  const box=await page.locator('#bond-canvas').boundingBox(),point={x:box.x+66+hoverRecord[6]/50*(box.width-88),y:box.y+24+(box.height-72)/2};
   await page.mouse.move(point.x,point.y);
   await page.locator('#bond-tooltip').waitFor({state:'visible'});
   tooltip=await page.locator('#bond-tooltip').innerText();
@@ -135,7 +138,10 @@ async function runBonds(browser,base,width=1440){
   await page.waitForFunction(()=>document.querySelector('#bond-rows tr'));
   await page.locator('#bond-canvas').hover({position:{x:200,y:200}});
   await page.mouse.wheel(0,-120);
+  const zoomedDomain=await page.locator('#bond-canvas').evaluate(canvas=>[Number(canvas.dataset.xMin),Number(canvas.dataset.xMax)]);
+  assert.ok(zoomedDomain[0]>=0&&zoomedDomain[1]<=50&&zoomedDomain[1]-zoomedDomain[0]<50);
   await page.locator('#zoom-reset').click();
+  assert.deepEqual(await page.locator('#bond-canvas').evaluate(canvas=>[Number(canvas.dataset.xMin),Number(canvas.dataset.xMax)]),[0,50]);
   assert.deepEqual(errors,[]);
   await context.close();
   return {width,bonds:data.records.length};

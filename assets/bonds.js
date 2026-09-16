@@ -3,6 +3,7 @@
   const model = window.LuacModel;
   const colors = {AAA:'#2c7fb8',AA:'#41ab5d',A:'#f0a202',BBB:'#d9488b',BB:'#7b61a8',NR:'#8b95a1'};
   const pageSize = 50;
+  const xLimit = {min:0,max:50};
   const elements = Object.fromEntries([
     'bond-total','bond-status','bond-search','bond-sort','show-curves','show-outliers','reset-filters','chart-title','chart-subtitle','curve-legend','canvas-wrap','bond-canvas','bond-tooltip','bond-rows','table-summary','page-prev','page-next','page-label','zoom-reset','residual-heading'
   ].map(id => [id,document.getElementById(id)]));
@@ -96,14 +97,21 @@
   }
 
   function domains(plot) {
-    const included=plot.filter(bond=>elements['show-outliers'].checked||!isOutlier(bond));
-    const xs=included.map(bond=>bond.maturity_years),ys=included.map(bond=>bond[state.metric]);
-    if(!xs.length)return{xMin:0,xMax:1,yMin:0,yMax:1};
-    let xMin=Math.min(...xs),xMax=Math.max(...xs),yMin=Math.min(...ys),yMax=Math.max(...ys);
-    const xp=Math.max(1,(xMax-xMin)*.04),yp=Math.max(state.metric==='yield_pct'?.2:5,(yMax-yMin)*.08);
-    xMin=Math.max(0,xMin-xp);xMax+=xp;yMin-=yp;yMax+=yp;
-    if(xMin===xMax)xMax=xMin+1;if(yMin===yMax)yMax=yMin+1;
-    return{xMin,xMax,yMin,yMax};
+    const included=plot.filter(bond=>(elements['show-outliers'].checked||!isOutlier(bond))&&bond.maturity_years>=xLimit.min&&bond.maturity_years<=xLimit.max);
+    const ys=included.map(bond=>bond[state.metric]);
+    if(!ys.length)return{xMin:xLimit.min,xMax:xLimit.max,yMin:0,yMax:1};
+    let yMin=Math.min(...ys),yMax=Math.max(...ys);
+    const yp=Math.max(state.metric==='yield_pct'?.2:5,(yMax-yMin)*.08);
+    yMin-=yp;yMax+=yp;if(yMin===yMax)yMax=yMin+1;
+    return{xMin:xLimit.min,xMax:xLimit.max,yMin,yMax};
+  }
+
+  function constrainedDomain(domain) {
+    const result={...domain},maximumSpan=xLimit.max-xLimit.min,span=result.xMax-result.xMin;
+    if(span>=maximumSpan){result.xMin=xLimit.min;result.xMax=xLimit.max;return result;}
+    if(result.xMin<xLimit.min){result.xMax+=xLimit.min-result.xMin;result.xMin=xLimit.min;}
+    if(result.xMax>xLimit.max){result.xMin-=result.xMax-xLimit.max;result.xMax=xLimit.max;}
+    return result;
   }
 
   function tickValues(min,max,count=6){const values=[];for(let i=0;i<count;i++)values.push(min+(max-min)*i/(count-1));return values;}
@@ -112,6 +120,7 @@
 
   function draw() {
     const size=resizeCanvas(),d=state.domain||{xMin:0,xMax:1,yMin:0,yMax:1},margin={left:66,right:22,top:24,bottom:48};
+    canvas.dataset.xMin=String(d.xMin);canvas.dataset.xMax=String(d.xMax);
     const width=Math.max(1,size.width-margin.left-margin.right),height=Math.max(1,size.height-margin.top-margin.bottom);
     const sx=x=>margin.left+(x-d.xMin)/(d.xMax-d.xMin)*width,sy=y=>margin.top+height-(y-d.yMin)/(d.yMax-d.yMin)*height;
     context.clearRect(0,0,size.width,size.height);context.fillStyle='#0c161e';context.fillRect(0,0,size.width,size.height);
@@ -167,7 +176,7 @@
 
   function initializeFilters(){
     const unique=name=>[...new Set(state.bonds.map(bond=>bond[name]))].sort((a,b)=>a.localeCompare(b));
-    buildFilter('rating',unique('rating'),values=>values.filter(value=>model.ratingBand(value)!=='NR'));
+    buildFilter('rating',unique('rating'),values=>values.filter(value=>['AAA','AA','A','BBB'].includes(model.ratingBand(value))));
     buildFilter('industry',unique('industry'),values=>values);
     buildFilter('issuer',unique('issuer'),()=>[]);buildFilter('ticker',unique('ticker'),()=>[]);
     document.querySelectorAll('.check-list input').forEach(input=>input.addEventListener('change',()=>{const set=state.selected[input.dataset.filter];input.checked?set.add(input.value):set.delete(input.value);state.page=1;scheduleRender();}));
@@ -181,11 +190,11 @@
   elements['reset-filters'].addEventListener('click',()=>{elements['bond-search'].value='';elements['bond-sort'].value='residual-desc';elements['show-curves'].checked=true;elements['show-outliers'].checked=false;document.querySelector('[name=bond-metric][value=yield_pct]').checked=true;state.metric='yield_pct';state.curveKey='';initializeFilters();state.page=1;render();});
   elements['page-prev'].addEventListener('click',()=>{state.page--;renderTable();});elements['page-next'].addEventListener('click',()=>{state.page++;renderTable();});elements['zoom-reset'].addEventListener('click',()=>{state.domain={...state.baseDomain};draw();});
 
-  canvas.addEventListener('pointermove',event=>{if(state.drag){const rect=canvas.getBoundingClientRect(),dx=event.clientX-state.drag.x,dy=event.clientY-state.drag.y,d=state.drag.domain;state.domain={xMin:d.xMin-dx/rect.width*(d.xMax-d.xMin),xMax:d.xMax-dx/rect.width*(d.xMax-d.xMin),yMin:d.yMin+dy/rect.height*(d.yMax-d.yMin),yMax:d.yMax+dy/rect.height*(d.yMax-d.yMin)};state.drag.moved=state.drag.moved||Math.abs(dx)+Math.abs(dy)>4;draw();return;}if(state.pinned)return;const point=nearest(event);if(point)showTooltip(point.bond,event.clientX,event.clientY);else hideTooltip();});
+  canvas.addEventListener('pointermove',event=>{if(state.drag){const rect=canvas.getBoundingClientRect(),dx=event.clientX-state.drag.x,dy=event.clientY-state.drag.y,d=state.drag.domain;state.domain=constrainedDomain({xMin:d.xMin-dx/rect.width*(d.xMax-d.xMin),xMax:d.xMax-dx/rect.width*(d.xMax-d.xMin),yMin:d.yMin+dy/rect.height*(d.yMax-d.yMin),yMax:d.yMax+dy/rect.height*(d.yMax-d.yMin)});state.drag.moved=state.drag.moved||Math.abs(dx)+Math.abs(dy)>4;draw();return;}if(state.pinned)return;const point=nearest(event);if(point)showTooltip(point.bond,event.clientX,event.clientY);else hideTooltip();});
   canvas.addEventListener('pointerleave',()=>{if(!state.drag)hideTooltip();});
   canvas.addEventListener('pointerdown',event=>{canvas.setPointerCapture(event.pointerId);state.drag={x:event.clientX,y:event.clientY,domain:{...state.domain},moved:false};elements['canvas-wrap'].classList.add('dragging');});
   canvas.addEventListener('pointerup',event=>{const drag=state.drag;state.drag=null;elements['canvas-wrap'].classList.remove('dragging');if(!drag?.moved){const point=nearest(event);if(point)showTooltip(point.bond,event.clientX,event.clientY,true);else hideTooltip(true);}});
-  canvas.addEventListener('wheel',event=>{event.preventDefault();const rect=canvas.getBoundingClientRect(),fx=(event.clientX-rect.left)/rect.width,fy=(event.clientY-rect.top)/rect.height,d=state.domain,factor=event.deltaY>0?1.16:.86,x=d.xMin+fx*(d.xMax-d.xMin),y=d.yMax-fy*(d.yMax-d.yMin),xSpan=(d.xMax-d.xMin)*factor,ySpan=(d.yMax-d.yMin)*factor;state.domain={xMin:x-fx*xSpan,xMax:x+(1-fx)*xSpan,yMin:y-(1-fy)*ySpan,yMax:y+fy*ySpan};draw();},{passive:false});
+  canvas.addEventListener('wheel',event=>{event.preventDefault();const rect=canvas.getBoundingClientRect(),fx=(event.clientX-rect.left)/rect.width,fy=(event.clientY-rect.top)/rect.height,d=state.domain,factor=event.deltaY>0?1.16:.86,x=d.xMin+fx*(d.xMax-d.xMin),y=d.yMax-fy*(d.yMax-d.yMin),xSpan=(d.xMax-d.xMin)*factor,ySpan=(d.yMax-d.yMin)*factor;state.domain=constrainedDomain({xMin:x-fx*xSpan,xMax:x+(1-fx)*xSpan,yMin:y-(1-fy)*ySpan,yMax:y+fy*ySpan});draw();},{passive:false});
   document.addEventListener('click',event=>{if(!event.target.closest('#canvas-wrap')&&!event.target.closest('#bond-tooltip')&&!event.target.closest('#bond-rows'))hideTooltip(true);});document.addEventListener('keydown',event=>{if(event.key==='Escape')hideTooltip(true);});window.addEventListener('resize',()=>draw());
 
   const version=document.querySelector('.bond-date time')?.dateTime||Date.now();
