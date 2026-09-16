@@ -43,13 +43,16 @@ jobs:
         run: |
           changed="$RUNNER_TEMP/rv-changed-files.txt"
           has_label=false
+          has_luac_label=false
           if [ "$EVENT_NAME" = "pull_request" ]; then
             gh pr diff "$PR_URL" --name-only > "$changed"
             base_sha="$PR_BASE_SHA"
             if [ -n "$EXPECTED_ACTOR" ] && [ "$ACTOR" = "$EXPECTED_ACTOR" ]; then
               for attempt in 1 2 3; do
-                if gh pr view "$PR_URL" --json labels --jq '.labels[].name' | grep -Fxq automated-rv-data; then
-                  has_label=true
+                labels="$(gh pr view "$PR_URL" --json labels --jq '.labels[].name')"
+                if echo "$labels" | grep -Fxq automated-rv-data; then has_label=true; fi
+                if echo "$labels" | grep -Fxq automated-luac-data; then has_luac_label=true; fi
+                if [ "$has_label" = true ] || [ "$has_luac_label" = true ]; then
                   break
                 fi
                 sleep 5
@@ -64,6 +67,8 @@ jobs:
           fi
           label_option=()
           if [ "$has_label" = true ]; then label_option=(--has-label); fi
+          luac_label_option=()
+          if [ "$has_luac_label" = true ]; then luac_label_option=(--has-luac-label); fi
           mode="$(python3 scripts/ci_validation_mode.py \
             --event "$EVENT_NAME" \
             --actor "$ACTOR" \
@@ -71,12 +76,13 @@ jobs:
             --head-ref "$HEAD_REF" \
             --head-repo "$HEAD_REPO" \
             --repository "$REPOSITORY" \
-            "${label_option[@]}" < "$changed")"
+            "${label_option[@]}" \
+            "${luac_label_option[@]}" < "$changed")"
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
           echo "Validation mode: $mode"
       - name: Build site for fast data validation
-        if: steps.validation.outputs.mode == 'data'
+        if: steps.validation.outputs.mode == 'data' || steps.validation.outputs.mode == 'luac-data'
         run: python3 publish.py --build-only
       - name: Validate automated data update
         if: steps.validation.outputs.mode == 'data'
@@ -90,6 +96,19 @@ jobs:
           python3 scripts/validate_fast_data.py \
             --current assets/rv-data.json \
             --previous "$RUNNER_TEMP/rv-data-previous.json" \
+            --public-root public
+      - name: Validate automated LUAC data update
+        if: steps.validation.outputs.mode == 'luac-data'
+        env:
+          BASE_SHA: ${{ steps.validation.outputs.base_sha }}
+        run: |
+          if ! git cat-file -e "$BASE_SHA:assets/luac-bonds.json" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          fi
+          git show "$BASE_SHA:assets/luac-bonds.json" > "$RUNNER_TEMP/luac-bonds-previous.json"
+          python3 scripts/validate_fast_luac.py \
+            --current assets/luac-bonds.json \
+            --previous "$RUNNER_TEMP/luac-bonds-previous.json" \
             --public-root public
       - uses: actions/setup-node@v4
         if: steps.validation.outputs.mode == 'full'

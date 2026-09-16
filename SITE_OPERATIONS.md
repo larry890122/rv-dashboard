@@ -96,6 +96,8 @@ python3 scripts/validate_fast_data.py \
 
 快速驗證要求資料結構與分類完整、460 個有限數值無缺值、Excel 來源、percentile 範圍、Min／Median／Max 排序、新日期，以及公開 JSON、頁面日期與 manifest 相符。Excel 原檔的四份工作簿、工作表與 92 個內嵌日期仍由瀏覽器及 Worker 驗證。
 
+可信任的 LUAC 自動資料 PR 若只修改 `assets/luac-bonds.json`，同樣走輕量資料驗證：嚴格檢查 schema、11 欄、缺值、非有限數字、重複 ID、品質旗標、0Y–50Y 圖表可用資料、日期遞增、±20% 筆數、4 MiB 上限，以及建置後 asset、頁面日期與 manifest 一致。資料-only 更新不重跑 Playwright、LOWESS 模型與 Worker 單元測試；任何程式或第二個檔案的變更仍跑完整 CI。
+
 任何程式碼、第二個檔案、不受信任作者／branch／label 的 PR 都走完整 CI：
 
 ```sh
