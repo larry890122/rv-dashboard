@@ -155,6 +155,8 @@ class RVTests(unittest.TestCase):
         self.assertIn("github.event.action == 'labeled'", workflow)
         self.assertIn("github.event.label.name == 'automated-rv-data'", workflow)
         self.assertIn("actions: write", workflow)
+        self.assertIn('gh pr merge "$PR_URL" --auto --squash --delete-branch --match-head-commit "$HEAD_SHA"', workflow)
+        self.assertIn('state="$(gh pr view "$PR_URL" --json state --jq .state)"', workflow)
         self.assertIn("gh workflow run pages.yml --ref main", workflow)
         self.assertIn("github.event_name == 'workflow_dispatch'", workflow)
 
