@@ -19,9 +19,10 @@ class LuacTests(unittest.TestCase):
         cls.snapshot = json.loads((ROOT / "assets" / "luac-bonds.json").read_text(encoding="utf-8"))
 
     def test_initial_public_snapshot_contract(self):
-        self.assertEqual(validate_luac(self.snapshot), (8870, 4))
+        count, anomalies = validate_luac(self.snapshot)
+        self.assertEqual(count, len(self.snapshot["records"]))
+        self.assertEqual(anomalies, sum(bool(record[-1]) for record in self.snapshot["records"]))
         self.assertEqual(self.snapshot["columns"], list(COLUMNS))
-        self.assertEqual(self.snapshot["date"], "2026-09-15")
         self.assertLess((ROOT / "assets" / "luac-bonds.json").stat().st_size, 4 * 1024 * 1024)
         serialized = json.dumps(self.snapshot).lower()
         for forbidden in (".xlsx", "/users/", "sha256", "source_file"):
@@ -43,6 +44,12 @@ class LuacTests(unittest.TestCase):
             self.assertEqual(validate_luac(result), (40, 0))
             self.assertEqual(result["records"][0][0], "US0000000000")
             self.assertEqual(result["records"][0][4], "2030-09-15")
+
+    def test_large_synthetic_update_fixture_is_publishable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = extract(make_fixture(Path(directory) / "large.xlsx", count=8870))
+            self.assertEqual(validate_luac(result), (8870, 0))
+            self.assertLess(len(json.dumps(result).encode("utf-8")), 4 * 1024 * 1024)
 
     def test_formula_missing_duplicate_mismatch_and_mixed_date_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

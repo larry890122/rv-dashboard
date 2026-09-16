@@ -49,7 +49,7 @@ def make_fixture(path: Path, variant: str = "valid", data_date: str = "2026-09-1
             4: f"T{index % 4}",
             5: serial("2030-09-15"),
             6: ("A-", "BBB+", "AA", "BB+")[index % 4],
-            7: 4 + index / 100,
+            7: 4 + (index % 4500) / 100,
             11: "Technology",
         }
         rows.append(f'<row r="{row}">' + "".join(cell(column, row, value) for column, value in values.items()) + "</row>")
@@ -59,8 +59,8 @@ def make_fixture(path: Path, variant: str = "valid", data_date: str = "2026-09-1
         if variant == "mismatch" and index == count - 1:
             identifier = "US9999999999"
         market_date = "2026-09-15" if variant == "mixed-date" and index == count - 1 else data_date
-        bond_yield: object = 55 if variant == "outlier" and index == count - 1 else 5 + index / 100
-        oas: object = "" if variant == "missing" and index == count - 1 else "NaN" if variant == "nonfinite" and index == count - 1 else 120 + index
+        bond_yield: object = 55 if variant == "outlier" and index == count - 1 else 5 + (index % 400) / 100
+        oas: object = "" if variant == "missing" and index == count - 1 else "NaN" if variant == "nonfinite" and index == count - 1 else 120 + (index % 400)
         values = {1: identifier, 8: serial(market_date), 9: oas, 10: bond_yield}
         contents = []
         for column, value in values.items():
