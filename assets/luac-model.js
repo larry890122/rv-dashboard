@@ -7,6 +7,12 @@
 
   const COLUMNS = ['id','security_des','issuer','ticker','maturity','rating','maturity_years','oas_bp','yield_pct','industry','flags'];
   const BANDS = ['AAA','AA','A','BBB','BB','NR'];
+  const CURVE_ANCHORS = [
+    {label:'5Y',center:5,tolerance:1},
+    {label:'7Y',center:7,tolerance:1},
+    {label:'10Y',center:10,tolerance:1},
+    {label:'30Y',center:30,tolerance:3},
+  ];
 
   function finite(value) {
     return typeof value === 'number' && Number.isFinite(value);
@@ -118,16 +124,28 @@
     return points.map((point,index) => ({...point, fitted:fitted[index], residual:point.y-fitted[index]}));
   }
 
-  function buildCurves(bonds, metric) {
-    const curves = new Map(), fitted = new Map();
-    for (const band of BANDS) {
-      const points = bonds.filter(bond => bond.band === band).map(bond => ({id:bond.id,x:bond.maturity_years,y:bond[metric],bond}));
-      const curve = lowess(points);
-      curves.set(band, curve);
-      for (const point of curve) fitted.set(point.id, point);
-    }
-    return {curves, fitted};
+  function curveEligibility(points) {
+    if (points.length < 20) return {status:'sample',count:points.length,missing:[]};
+    const missing=CURVE_ANCHORS.filter(anchor=>!points.some(point=>Math.abs(point.x-anchor.center)<=anchor.tolerance)).map(anchor=>anchor.label);
+    return {status:missing.length?'coverage':'eligible',count:points.length,missing};
   }
 
-  return {BANDS,COLUMNS,buildCurves,finite,lowess,qualityFlags,ratingBand,rowToBond,validateSnapshot};
+  function buildCurves(bonds, metric, groupBy='band', requestedGroups=groupBy==='band'?BANDS:null) {
+    const getter=typeof groupBy==='function'?groupBy:bond=>bond[groupBy];
+    const eligibleBonds=bonds.filter(bond=>
+      (!Array.isArray(bond.flags)||bond.flags.length===0)&&
+      finite(bond.maturity_years)&&bond.maturity_years>0&&bond.maturity_years<=50&&finite(bond[metric])
+    );
+    const groups=requestedGroups?[...requestedGroups]:[...new Set(eligibleBonds.map(getter))].sort((a,b)=>String(a).localeCompare(String(b)));
+    const curves=new Map(),fitted=new Map(),eligibility=new Map();
+    for (const group of groups) {
+      const points=eligibleBonds.filter(bond=>getter(bond)===group).map(bond=>({id:bond.id,x:bond.maturity_years,y:bond[metric],bond}));
+      const result=curveEligibility(points),curve=result.status==='eligible'?lowess(points):[];
+      eligibility.set(group,result);curves.set(group,curve);
+      for (const point of curve) fitted.set(point.id,point);
+    }
+    return {curves,fitted,eligibility};
+  }
+
+  return {BANDS,COLUMNS,CURVE_ANCHORS,buildCurves,curveEligibility,finite,lowess,qualityFlags,ratingBand,rowToBond,validateSnapshot};
 });

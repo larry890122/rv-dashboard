@@ -87,7 +87,49 @@ async function runBonds(browser,base,width=1440){
   assert.ok(uncheckedRatings.every(rating=>['BB','NR'].includes(model.ratingBand(rating))));
   assert.ok(checkedRatings.every(rating=>['AAA','AA','A','BBB'].includes(model.ratingBand(rating))));
   assert.deepEqual(await page.locator('#bond-canvas').evaluate(canvas=>[Number(canvas.dataset.xMin),Number(canvas.dataset.xMax)]),[0,50]);
+  assert.equal(await page.locator('#issuer-filter').count(),0);
+  assert.equal(await page.locator('#curve-group option[value=ticker]').count(),0);
+  assert.deepEqual(await page.locator('.filter-card').evaluateAll(cards=>cards.map(card=>card.dataset.filter)),['rating','industry','ticker']);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${width}/bonds overflow`);
+
+  if(width===1440){
+    const industryHandle=page.locator('.filter-card[data-filter=industry] .drag-handle'),ratingCard=page.locator('.filter-card[data-filter=rating]');
+    const handleBox=await industryHandle.boundingBox(),ratingBox=await ratingCard.boundingBox();
+    await page.mouse.move(handleBox.x+handleBox.width/2,handleBox.y+handleBox.height/2);await page.mouse.down();
+    await page.mouse.move(ratingBox.x+ratingBox.width/2,ratingBox.y+2,{steps:6});await page.mouse.up();
+    assert.deepEqual(await page.locator('.filter-card').evaluateAll(cards=>cards.map(card=>card.dataset.filter)),['industry','rating','ticker']);
+    await page.locator('#reset-filters').click();
+    await page.locator('.filter-card[data-filter=ticker] [data-filter-move=up]').click();
+    assert.deepEqual(await page.locator('.filter-card').evaluateAll(cards=>cards.map(card=>card.dataset.filter)),['rating','ticker','industry']);
+    await page.locator('#reset-filters').click();
+
+    const exactRating=data.records.map(record=>record[5]).find(rating=>model.ratingBand(rating)==='A');
+    assert.ok(exactRating);
+    await page.locator('[data-filter-action=none][data-filter=rating]').click();
+    await page.locator('#rating-filter input').evaluateAll((inputs,value)=>inputs.find(input=>input.value===value).click(),exactRating);
+    const matching=data.records.filter(record=>record[5]===exactRating),industries=[...new Set(matching.map(record=>record[9]))].sort(),tickers=[...new Set(matching.map(record=>record[3]))].sort();
+    assert.deepEqual((await page.locator('#industry-filter input').evaluateAll(inputs=>inputs.map(input=>input.value))).sort(),industries);
+    assert.deepEqual((await page.locator('#ticker-filter input').evaluateAll(inputs=>inputs.map(input=>input.value))).sort(),tickers);
+    assert.ok((await page.locator('#bond-rows tr td:nth-child(4)').allInnerTexts()).every(rating=>rating===exactRating));
+
+    await page.locator('#point-group').selectOption('industry');
+    assert.equal(await page.locator('#point-group').inputValue(),'band');
+    assert.match(await page.locator('#grouping-notice').innerText(),/1–10/);
+    await page.locator('#industry-filter input').first().check();
+    await page.locator('#point-group').selectOption('industry');await page.locator('#curve-group').selectOption('industry');
+    assert.equal(await page.locator('#point-group').inputValue(),'industry');assert.equal(await page.locator('#curve-group').inputValue(),'industry');
+    assert.match(await page.locator('#curve-legend').innerText(),/點位顏色與回歸曲線｜產業/);
+    await page.locator('#ticker-filter input').first().check();await page.locator('#point-group').selectOption('ticker');
+    assert.equal(await page.locator('#point-group').inputValue(),'ticker');
+    const curveLegend=await page.locator('.legend-group').nth(1).innerText();
+    assert.match(await page.locator('#curve-legend').innerText(),/點位顏色｜Ticker/);assert.match(curveLegend,/回歸曲線｜產業/);
+    const selectedId=await page.locator('#bond-rows tr').first().getAttribute('data-id');await page.locator('#bond-search').fill(selectedId);
+    await page.waitForFunction(id=>document.querySelectorAll('#bond-rows tr').length===1&&document.querySelector('#bond-rows tr')?.dataset.id===id,selectedId);
+    assert.equal(await page.locator('.legend-group').nth(1).innerText(),curveLegend,'bond search must not change curve population');
+    await page.locator('#bond-search').fill('');await page.locator('#ticker-filter input:checked').first().evaluate(input=>input.click());
+    assert.equal(await page.locator('#point-group').inputValue(),'band');assert.match(await page.locator('#grouping-notice').innerText(),/已改回信評大類/);
+    await page.locator('#reset-filters').click();
+  }
 
   let row=page.locator('#bond-rows tr').first();
   await row.focus();
