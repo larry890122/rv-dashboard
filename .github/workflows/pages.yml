@@ -88,12 +88,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr diff "$PR_URL" --name-only | python3 scripts/verify_data_only_pr.py
-      - name: Merge verified data update
+      - name: Enable verified data auto-merge
         env:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge "$PR_URL" --squash --delete-branch
-      - name: Trigger main deployment
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: gh pr merge "$PR_URL" --auto --squash --delete-branch --match-head-commit "$HEAD_SHA"
+      - name: Wait for merge then trigger main deployment
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          for attempt in $(seq 1 60); do
+            state="$(gh pr view "$PR_URL" --json state --jq .state)"
+            if [ "$state" = "MERGED" ]; then
+              gh workflow run pages.yml --ref main
+              exit 0
+            fi
+            if [ "$state" = "CLOSED" ]; then
+              echo "Data PR closed before merge."
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for GitHub auto-merge."
+          exit 1
