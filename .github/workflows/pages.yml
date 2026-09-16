@@ -109,6 +109,8 @@ jobs:
       - if: steps.validation.outputs.mode == 'full'
         run: python3 -m unittest discover -s tests -v
       - if: steps.validation.outputs.mode == 'full'
+        run: pnpm run test:model
+      - if: steps.validation.outputs.mode == 'full'
         run: pnpm run test:worker
       - if: steps.validation.outputs.mode == 'full'
         run: pnpm run check:worker
@@ -189,4 +191,53 @@ jobs:
             sleep 10
           done
           echo "Timed out waiting for GitHub auto-merge."
+          exit 1
+
+  auto-merge-luac-data:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'automated-luac-data' &&
+      vars.RV_UPLOAD_APP_LOGIN != '' &&
+      github.actor == vars.RV_UPLOAD_APP_LOGIN &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'automation/luac-data-') &&
+      contains(github.event.pull_request.labels.*.name, 'automated-luac-data')
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Require exactly one changed LUAC data file
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr diff "$PR_URL" --name-only | python3 scripts/verify_luac_data_only_pr.py
+      - name: Enable verified LUAC data auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: gh pr merge "$PR_URL" --auto --squash --delete-branch --match-head-commit "$HEAD_SHA"
+      - name: Wait for merge then trigger main deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          for attempt in $(seq 1 60); do
+            state="$(gh pr view "$PR_URL" --json state --jq .state)"
+            if [ "$state" = "MERGED" ]; then
+              gh workflow run pages.yml --ref main
+              exit 0
+            fi
+            if [ "$state" = "CLOSED" ]; then
+              echo "LUAC data PR closed before merge."
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for LUAC auto-merge."
           exit 1

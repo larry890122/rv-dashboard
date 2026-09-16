@@ -9,6 +9,7 @@
     'Non-Cyclical':['Telecom','Utility','F&B','Tobacco','Healthcare','Retail','Transportation']
   };
   const ALIASES={Ins:'Insurance',Chem:'Chemical',HC:'Healthcare',Trans:'Transportation'};
+  const LUAC_HEADERS=['ID','SECURITY_DES','LONG_COMP_NAME','TICKER','MATURITY','BB_COMPOSITE','MTY_YEARS_TDY','DATES',"SPREAD(ST='OAS',PRICING_SOURCE=BVAL,SIDE=BID)",'YIELD(YT=CONVENTION,PRICING_SOURCE=BVAL,SIDE=BID)','CLASSIFICATION_NAME(BICS,3,TYPE=ISSUER)'];
   const inputs=new Map([...document.querySelectorAll('input[type=file][data-metric]')].map(input=>[input.dataset.metric,input]));
   const names=new Map([...document.querySelectorAll('[data-file-name]')].map(output=>[output.dataset.fileName,output]));
   const validationStatus=document.querySelector('#validation-status');
@@ -18,7 +19,10 @@
   const password=document.querySelector('#upload-password');
   const serviceState=document.querySelector('#service-state');
   const drop=document.querySelector('#bulk-drop');
-  const state={files:{},data:null,config:{enabled:false,api_url:''},currentDate:null,token:null};
+  const luacFile=document.querySelector('#luac-file'),luacFileName=document.querySelector('#luac-file-name');
+  const luacValidationStatus=document.querySelector('#luac-validation-status'),luacValidationSummary=document.querySelector('#luac-validation-summary');
+  const luacPublishStatus=document.querySelector('#luac-publish-status'),luacPublishButton=document.querySelector('#publish-luac'),luacPassword=document.querySelector('#luac-upload-password');
+  const state={files:{},data:null,luacData:null,config:{enabled:false,luac_enabled:false,api_url:''},currentDate:null,currentLuacDate:null,currentLuacCount:null,token:null};
 
   const setStatus=(element,type,message)=>{element.className=`status ${type}`;element.textContent=message;};
   const finite=value=>typeof value==='number'&&Number.isFinite(value);
@@ -120,6 +124,53 @@
     }
     return {metric,dates,result};
   }
+  const present=value=>value!==null&&value!==undefined&&value!=='';
+  const luacText=(value,field,row,maximum=Infinity)=>{if(typeof value!=='string'||!value.trim()||value.trim().length>maximum)throw Error(`LUAC 第 ${row} 列的 ${field} 無效`);return value.trim();};
+  const luacNumber=(value,field,row)=>{if(!finite(value))throw Error(`LUAC 第 ${row} 列的 ${field} 無效`);return value;};
+  const luacFlags=(years,oas,bondYield)=>{
+    const flags=[];
+    if(bondYield<=0||bondYield>50)flags.push('yield_outlier');
+    if(years<=0||years>100)flags.push('maturity_outlier');
+    if(oas<-250||oas>5000)flags.push('oas_outlier');
+    return flags;
+  };
+  async function parseLuacWorkbook(file){
+    if(!file||!file.name.toLowerCase().endsWith('.xlsx'))throw Error('LUAC 必須選取 .xlsx 檔案');
+    const entries=await unzip(file),strings=sharedStrings(entries),book=workbookSheets(entries);
+    if(book.sheets.size!==1)throw Error('LUAC Excel 必須且只能有一個工作表');
+    const path=[...book.sheets.values()][0],doc=xml(entries.get(path),path);
+    if(nodes(doc,'f').length)throw Error('LUAC 正式更新只接受無公式的純值 Excel');
+    const values=cells(doc,strings),headers=LUAC_HEADERS.map((_,index)=>values.get(`${column(index+1)}1`));
+    if(JSON.stringify(headers)!==JSON.stringify(LUAC_HEADERS))throw Error('LUAC Excel 欄位不符合必要格式');
+    const maximum=[...values.keys()].reduce((highest,address)=>Math.max(highest,Number(/\d+$/.exec(address)?.[0]||0)),1),staticRows=new Map(),marketRows=new Map(),order=[];
+    for(let row=2;row<=maximum;row++){
+      const record=LUAC_HEADERS.map((_,index)=>values.get(`${column(index+1)}${row}`)??null);
+      if(record.every(value=>!present(value)))continue;
+      const id=luacText(record[0],'ID',row,64),hasStatic=[1,2,3,4,5,6,10].some(index=>present(record[index])),hasMarket=[7,8,9].some(index=>present(record[index]));
+      if(hasStatic===hasMarket)throw Error(`LUAC 第 ${row} 列必須只屬於靜態或行情區塊`);
+      const target=hasStatic?staticRows:marketRows;
+      if(target.has(id))throw Error(`LUAC ID 重複：${id}`);
+      if(hasStatic){
+        for(const [index,field,maximum] of [[1,'SECURITY_DES',180],[2,'發行人',300],[3,'Ticker',32],[5,'信評',16],[10,'產業',160]])luacText(record[index],field,row,maximum);
+        luacNumber(record[4],'到期日',row);luacNumber(record[6],'剩餘年期',row);order.push(id);
+      }else{
+        luacNumber(record[7],'資料日期',row);luacNumber(record[8],'OAS',row);luacNumber(record[9],'Yield',row);
+      }
+      target.set(id,record);
+    }
+    if(!staticRows.size||staticRows.size!==marketRows.size||[...staticRows.keys()].some(id=>!marketRows.has(id)))throw Error('LUAC 靜態與行情區塊的 ID 必須完整一致');
+    const dates=new Set([...marketRows.values()].map(record=>dateFromSerial(record[7],book.date1904)));
+    if(dates.size!==1)throw Error('LUAC 行情資料日期不一致');
+    const records=order.map(id=>{
+      const source=staticRows.get(id),market=marketRows.get(id),years=luacNumber(source[6],'剩餘年期',0),oas=luacNumber(market[8],'OAS',0),bondYield=luacNumber(market[9],'Yield',0);
+      return [id,luacText(source[1],'SECURITY_DES',0,180),luacText(source[2],'發行人',0,300),luacText(source[3],'Ticker',0,32),dateFromSerial(source[4],book.date1904),luacText(source[5],'信評',0,16),years,oas,bondYield,luacText(source[10],'產業',0,160),luacFlags(years,oas,bondYield)];
+    });
+    if(records.length<1||records.length>20000)throw Error(`LUAC 債券筆數 ${records.length} 超出允許範圍`);
+    const data={schema_version:1,date:[...dates][0],columns:window.LuacModel.COLUMNS,records};
+    window.LuacModel.validateSnapshot(data);
+    if(new TextEncoder().encode(JSON.stringify({data})).byteLength>4*1024*1024)throw Error('LUAC 公開資料超過 4 MiB 上限');
+    return data;
+  }
   function validateSnapshot(data){
     if(data.horizon!=='2Y'||Object.keys(data.sections).join('|')!==Object.keys(SECTIONS).join('|'))throw Error('公開資料結構不正確');
     let count=0;
@@ -155,6 +206,7 @@
     if(unknown.length||duplicates.length)setStatus(validationStatus,'error',[unknown.length?`無法辨識：${unknown.join('、')}`:'',duplicates.length?`重複指標：${[...new Set(duplicates)].join('、')}`:''].filter(Boolean).join('\n'));
   }
   function clear(){state.files={};state.data=null;state.token=null;for(const input of inputs.values())input.value='';for(const output of names.values())output.textContent='尚未選取';validationSummary.hidden=true;publishButton.disabled=true;setStatus(validationStatus,'neutral','等待選取四份 Excel。');setStatus(publishStatus,'neutral','尚未送出。');}
+  function clearLuac(){state.luacData=null;luacFile.value='';luacFileName.textContent='尚未選取';luacValidationSummary.hidden=true;luacPublishButton.disabled=true;setStatus(luacValidationStatus,'neutral','等待選取 LUAC 純值 Excel。');setStatus(luacPublishStatus,'neutral','尚未送出。');}
   async function validateFiles(){
     const missing=METRICS.filter(metric=>!state.files[metric]);
     if(missing.length){setStatus(validationStatus,'error',`缺少：${missing.join('、')}`);return;}
@@ -173,6 +225,19 @@
       setStatus(validationStatus,'success','驗證通過。原始 Excel 已從程式狀態釋放，只保留公開摘要資料。');
       publishButton.disabled=!state.config.enabled;
     }catch(error){state.data=null;publishButton.disabled=true;setStatus(validationStatus,'error',error.message||String(error));}
+  }
+  async function validateLuacFile(){
+    const file=luacFile.files[0];
+    if(!file){setStatus(luacValidationStatus,'error','請先選取 LUAC 純值 Excel。');return;}
+    setStatus(luacValidationStatus,'neutral','正在本機解析 LUAC Excel…');
+    try{
+      const data=await parseLuacWorkbook(file),count=data.records.length,anomalies=data.records.filter(record=>record[10].length).length;
+      if(state.currentLuacDate&&data.date<=state.currentLuacDate)throw Error(`資料日期 ${data.date} 必須晚於正式站 ${state.currentLuacDate}；同日修正請走人工 PR`);
+      if(state.currentLuacCount){const low=state.currentLuacCount*.8,high=state.currentLuacCount*1.2;if(count<low||count>high)throw Error(`債券筆數由 ${state.currentLuacCount} 變為 ${count}，超過 ±20%，需走人工 PR`);}
+      state.luacData=data;luacFile.value='';luacFileName.textContent='原始檔已從程式狀態釋放';
+      document.querySelector('#luac-summary-date').textContent=data.date;document.querySelector('#luac-summary-count').textContent=count.toLocaleString('en-US');document.querySelector('#luac-summary-anomalies').textContent=anomalies.toLocaleString('en-US');luacValidationSummary.hidden=false;
+      setStatus(luacValidationStatus,'success','驗證通過。原始 Excel 已釋放，只保留精簡公開資料。');luacPublishButton.disabled=!state.config.luac_enabled;
+    }catch(error){state.luacData=null;luacPublishButton.disabled=true;setStatus(luacValidationStatus,'error',error.message||String(error));}
   }
   const endpoint=path=>`${state.config.api_url.replace(/\/$/,'')}${path}`;
   async function api(path,options={}){
@@ -195,6 +260,15 @@
     }
     setStatus(publishStatus,'error','等待超過 10 分鐘；資料可能仍在 GitHub 執行，請稍後查看正式網站。');
   }
+  async function pollLuacStatus(id){
+    for(let attempt=0;attempt<60;attempt++){
+      const result=await api(`/status/luac/${encodeURIComponent(id)}`);
+      setStatus(luacPublishStatus,result.state==='failed'?'error':result.state==='deployed'?'success':'neutral',result.message);
+      if(['failed','deployed'].includes(result.state))return;
+      await new Promise(resolve=>setTimeout(resolve,10000));
+    }
+    setStatus(luacPublishStatus,'error','等待超過 10 分鐘；單券資料可能仍在 GitHub 執行，請稍後查看正式網站。');
+  }
   async function publish(){
     if(!state.data||!state.config.enabled)return;
     const secret=password.value;
@@ -207,12 +281,25 @@
       await pollStatus(job.id);
     }catch(error){setStatus(publishStatus,'error',error.message||String(error));publishButton.disabled=false;}
   }
+  async function publishLuac(){
+    if(!state.luacData||!state.config.luac_enabled)return;
+    const secret=luacPassword.value;
+    if(!secret){setStatus(luacPublishStatus,'error','請輸入上傳密碼。');return;}
+    luacPublishButton.disabled=true;setStatus(luacPublishStatus,'neutral','正在登入更新服務…');
+    try{
+      const session=await api('/session',{method:'POST',body:JSON.stringify({password:secret})});state.token=session.token;luacPassword.value='';
+      setStatus(luacPublishStatus,'neutral','驗證成功，正在建立單券資料更新 PR…');
+      const job=await api('/publish/luac',{method:'POST',body:JSON.stringify({data:state.luacData})});
+      await pollLuacStatus(job.id);
+    }catch(error){setStatus(luacPublishStatus,'error',error.message||String(error));luacPublishButton.disabled=false;}
+  }
   async function initialize(){
     try{
-      const [config,current]=await Promise.all([fetch('assets/upload-config.json',{cache:'no-store'}).then(r=>r.json()),fetch('assets/rv-data.json',{cache:'no-store'}).then(r=>r.json())]);
-      state.config=config;state.currentDate=current.date;
+      const [config,current,currentLuac]=await Promise.all([fetch('assets/upload-config.json',{cache:'no-store'}).then(r=>r.json()),fetch('assets/rv-data.json',{cache:'no-store'}).then(r=>r.json()),fetch('assets/luac-bonds.json',{cache:'no-store'}).then(r=>r.json())]);
+      state.config=config;state.currentDate=current.date;state.currentLuacDate=currentLuac.date;state.currentLuacCount=currentLuac.records.length;
       serviceState.textContent=config.enabled?'更新服務已啟用。驗證資料後即可發布。':'更新服務尚未啟用；目前只能在本機驗證 Excel。';
-      password.disabled=!config.enabled;
+      password.disabled=!config.enabled;luacPassword.disabled=!config.luac_enabled;
+      if(!config.luac_enabled)setStatus(luacPublishStatus,'neutral','單券資料發布尚未啟用；目前只能在本機驗證。');
     }catch(error){serviceState.textContent='無法讀取更新服務設定。';setStatus(publishStatus,'error',error.message||String(error));}
   }
   for(const [metric,input] of inputs){input.addEventListener('change',()=>{if(input.files[0])choose(metric,input.files[0]);});}
@@ -224,5 +311,9 @@
   document.querySelector('#validate-files').addEventListener('click',validateFiles);
   document.querySelector('#test-service').addEventListener('click',testService);
   publishButton.addEventListener('click',publish);
+  luacFile.addEventListener('change',()=>{if(luacFile.files[0]){luacFileName.textContent=luacFile.files[0].name;state.luacData=null;luacValidationSummary.hidden=true;luacPublishButton.disabled=true;setStatus(luacValidationStatus,'neutral','檔案已變更，請重新驗證。');}});
+  document.querySelector('#clear-luac').addEventListener('click',clearLuac);
+  document.querySelector('#validate-luac').addEventListener('click',validateLuacFile);
+  luacPublishButton.addEventListener('click',publishLuac);
   initialize();
 })();
