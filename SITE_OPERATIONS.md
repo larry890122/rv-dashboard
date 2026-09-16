@@ -28,7 +28,7 @@
 - branch 必須以 `automation/rv-data-` 開頭。
 - PR 必須有 `automated-rv-data` label。
 - diff 必須且只能是 `assets/rv-data.json`。
-- 完整 CI 必須通過。
+- 快速資料 CI 必須通過；它只驗證公開資料與建置結果，不重跑未變更的網站、Worker 或瀏覽器程式。
 
 任何包含第二個檔案或程式碼的 PR 都不得自動合併。
 
@@ -60,6 +60,20 @@ node scripts/verify_excel_browser_parity.cjs \
 
 ## 建置與驗證
 
+可信任的自動資料 PR 若只修改 `assets/rv-data.json`，會保留既有 `tests` required check 名稱，但只執行：
+
+```sh
+python3 publish.py --build-only
+python3 scripts/validate_fast_data.py \
+  --current assets/rv-data.json \
+  --previous <前一版rv-data.json> \
+  --public-root public
+```
+
+快速驗證要求資料結構與分類完整、460 個有限數值無缺值、Excel 來源、percentile 範圍、Min／Median／Max 排序、新日期，以及公開 JSON、頁面日期與 manifest 相符。Excel 原檔的四份工作簿、工作表與 92 個內嵌日期仍由瀏覽器及 Worker 驗證。
+
+任何程式碼、第二個檔案、不受信任作者／branch／label 的 PR 都走完整 CI：
+
 ```sh
 python3 publish.py --build-only
 python3 -m unittest discover -s tests -v
@@ -70,7 +84,7 @@ python3 -m http.server 8766 --directory public
 pnpm run test:browser -- http://127.0.0.1:8766/
 ```
 
-PR 必須通過資料 schema、460 個摘要值、公開資料防洩漏、連結、manifest 與桌面／平板／手機 Playwright 測試。
+完整 CI 必須通過資料 schema、460 個摘要值、公開資料防洩漏、連結、manifest 與桌面／平板／手機 Playwright 測試。資料-only commit 合併至 `main` 後沿用快速驗證產生 Pages artifact；其他 `main` commit 仍走完整 CI。
 
 ## 發布與回復
 
