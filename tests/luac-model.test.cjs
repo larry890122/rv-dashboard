@@ -28,8 +28,9 @@ test('curve lookup returns residuals for each eligible rating band', () => {
     id:`${band}-${index}`,band,maturity_years:index+1,yield_pct:index/10+3,oas_bp:index+100,flags:[],
   });
   const result = model.buildCurves(bonds,'yield_pct');
-  assert.equal(result.curves.get('AAA').length,30);
-  assert.equal(result.curves.get('BBB').length,30);
+  assert.equal(result.curves.get('AAA').length,201);
+  assert.deepEqual([result.curves.get('AAA')[0].x,result.curves.get('AAA').at(-1).x],[0,50]);
+  assert.equal(result.curves.get('BBB').length,201);
   assert.equal(result.curves.get('AA').length,0);
   assert.equal(result.eligibility.get('AA').status,'sample');
   assert.equal(result.fitted.size,60);
@@ -44,7 +45,7 @@ test('generic curve groups enforce sample, maturity coverage, range, and outlier
   bonds.push({id:'flagged',industry:'Technology',maturity_years:30,yield_pct:99,flags:['yield_outlier']});
   bonds.push({id:'long',industry:'Technology',maturity_years:60,yield_pct:4,flags:[]});
   const eligible=model.buildCurves(bonds,'yield_pct','industry',['Technology','Utilities']);
-  assert.equal(eligible.curves.get('Technology').length,24);
+  assert.equal(eligible.curves.get('Technology').length,201);
   assert.equal(eligible.eligibility.get('Technology').status,'eligible');
   assert.equal(eligible.eligibility.get('Utilities').status,'sample');
   assert.equal(eligible.fitted.has('flagged'),false);
@@ -55,6 +56,17 @@ test('generic curve groups enforce sample, maturity coverage, range, and outlier
   assert.equal(coverage.curves.get('Technology').length,0);
   assert.equal(coverage.eligibility.get('Technology').status,'coverage');
   assert.deepEqual(coverage.eligibility.get('Technology').missing,['30Y']);
+});
+
+test('filtered curves allow five samples and annotate missing tenor bands', () => {
+  const bonds=[1,2,3,4,5].map((x,index)=>({id:String(index),industry:'Technology',maturity_years:x,yield_pct:2*x+1,flags:[]}));
+  const result=model.buildCurves(bonds,'yield_pct','industry',['Technology'],{minimumSamples:5,requireCoverage:false});
+  assert.equal(result.eligibility.get('Technology').status,'eligible');
+  assert.ok(result.eligibility.get('Technology').missing.includes('30Y'));
+  assert.equal(result.curves.get('Technology').length,201);
+  assert.ok(Number.isFinite(result.curves.get('Technology')[0].fitted));
+  assert.ok(Number.isFinite(result.curves.get('Technology').at(-1).fitted));
+  assert.equal(result.fitted.size,5);
 });
 
 test('public contract rejects impossible dates and incorrect quality flags', () => {

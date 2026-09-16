@@ -50,6 +50,14 @@ def content_hash(output: Path) -> str:
     return digest.hexdigest()
 
 
+def asset_version(*paths: Path) -> str:
+    digest = hashlib.sha256()
+    for path in paths:
+        digest.update(path.name.encode("utf-8"))
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:10]
+
+
 def validate_public(output: Path) -> None:
     required = (
         output / "index.html",
@@ -90,11 +98,11 @@ def build() -> tuple[Path, dict]:
     page = template.replace("{{DATA_DATE_ISO}}", snapshot["date"]).replace(
         "{{DATA_DATE_DISPLAY}}", snapshot["date"].replace("-", "/")
     )
-    update_page = (ROOT / "update.template.html").read_text(encoding="utf-8")
+    update_version = asset_version(ROOT / "assets" / "update.js", ROOT / "assets" / "update.css", ROOT / "assets" / "luac-model.js")
+    update_page = (ROOT / "update.template.html").read_text(encoding="utf-8").replace("{{UPDATE_VERSION}}", update_version)
     bonds_template = (ROOT / "bonds.template.html").read_text(encoding="utf-8")
-    bonds_page = bonds_template.replace("{{LUAC_DATE_ISO}}", luac["date"]).replace(
-        "{{LUAC_DATE_DISPLAY}}", luac["date"].replace("-", "/")
-    )
+    luac_version = f"{luac['date']}-{asset_version(ROOT / 'assets' / 'luac-bonds.json', ROOT / 'assets' / 'bonds.js', ROOT / 'assets' / 'luac-model.js')}"
+    bonds_page = bonds_template.replace("{{LUAC_DATE_ISO}}", luac["date"]).replace("{{LUAC_DATE_DISPLAY}}", luac["date"].replace("-", "/")).replace("{{LUAC_VERSION}}", luac_version)
     temporary = Path(tempfile.mkdtemp(prefix=".rv-public-", dir=ROOT))
     backup: Path | None = None
     try:

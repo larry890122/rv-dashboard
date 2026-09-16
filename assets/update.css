@@ -35,4 +35,10 @@ body { background:#f7f9fb; font-family:"Microsoft JhengHei","PingFang TC",sans-s
 .luac-upload { margin-top:24px; }
 .luac-file { margin:16px 0 12px; }
 .luac-upload .summary { margin-bottom:14px; }
+.confirmation { display:flex; align-items:flex-start; gap:9px; margin:12px 0; padding:12px 14px; border:1px solid #e6c982; border-radius:6px; background:#fff9e8; color:#76530a; font-size:13px; line-height:1.55; }
+.confirmation input { margin-top:3px; }
+.diagnostic-panel { margin:18px 0; padding:16px; border:1px solid #cddce6; border-radius:8px; background:#f8fbfd; }
+.diagnostic-panel h3 { margin:0; font-size:16px; color:#173e5a; }
+.diagnostic-panel p { margin-bottom:10px; }
+.diagnostic-panel .summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
 @media(max-width:650px) { .upload-shell { padding:24px 16px 40px; } .upload-shell h1 { font-size:27px; } .upload-card { padding:16px; } .file-grid,.summary { grid-template-columns:1fr; } .section-heading { align-items:flex-start; } }

@@ -101,8 +101,8 @@
     return (sy - slope * sx) / sw + slope * target;
   }
 
-  function lowess(input) {
-    if (!Array.isArray(input) || input.length < 20) return [];
+  function fitLowess(input, minimumSamples=20) {
+    if (!Array.isArray(input) || input.length < minimumSamples) return null;
     const points = [...input].sort((a,b) => a.x-b.x || String(a.id).localeCompare(String(b.id)));
     const neighborCount = Math.min(points.length, Math.max(30, Math.ceil(points.length * 0.3)));
     let robust = new Array(points.length).fill(1), fitted = [];
@@ -121,16 +121,27 @@
         return ratio >= 1 ? 0 : Math.pow(1-ratio*ratio,2);
       });
     }
-    return points.map((point,index) => ({...point, fitted:fitted[index], residual:point.y-fitted[index]}));
+    return {points,neighborCount,robust,predict:target=>localFit(points,target,neighborCount,robust)};
   }
 
-  function curveEligibility(points) {
-    if (points.length < 20) return {status:'sample',count:points.length,missing:[]};
+  function lowess(input, options={}) {
+    const minimumSamples=options.minimumSamples??20,fit=fitLowess(input,minimumSamples);
+    if(!fit)return [];
+    const targets=options.targets||fit.points;
+    return targets.map(target=>{
+      const source=typeof target==='number'?{x:target}:target,fitted=fit.predict(source.x);
+      return {...source,fitted,...(finite(source.y)?{residual:source.y-fitted}:{})};
+    });
+  }
+
+  function curveEligibility(points, options={}) {
+    const minimumSamples=options.minimumSamples??20,requireCoverage=options.requireCoverage??true;
+    if (points.length < minimumSamples) return {status:'sample',count:points.length,missing:[]};
     const missing=CURVE_ANCHORS.filter(anchor=>!points.some(point=>Math.abs(point.x-anchor.center)<=anchor.tolerance)).map(anchor=>anchor.label);
-    return {status:missing.length?'coverage':'eligible',count:points.length,missing};
+    return {status:requireCoverage&&missing.length?'coverage':'eligible',count:points.length,missing};
   }
 
-  function buildCurves(bonds, metric, groupBy='band', requestedGroups=groupBy==='band'?BANDS:null) {
+  function buildCurves(bonds, metric, groupBy='band', requestedGroups=groupBy==='band'?BANDS:null, options={}) {
     const getter=typeof groupBy==='function'?groupBy:bond=>bond[groupBy];
     const eligibleBonds=bonds.filter(bond=>
       (!Array.isArray(bond.flags)||bond.flags.length===0)&&
@@ -138,14 +149,15 @@
     );
     const groups=requestedGroups?[...requestedGroups]:[...new Set(eligibleBonds.map(getter))].sort((a,b)=>String(a).localeCompare(String(b)));
     const curves=new Map(),fitted=new Map(),eligibility=new Map();
+    const grid=options.grid||Array.from({length:201},(_,index)=>index/4);
     for (const group of groups) {
       const points=eligibleBonds.filter(bond=>getter(bond)===group).map(bond=>({id:bond.id,x:bond.maturity_years,y:bond[metric],bond}));
-      const result=curveEligibility(points),curve=result.status==='eligible'?lowess(points):[];
+      const result=curveEligibility(points,options),curve=result.status==='eligible'?lowess(points,{minimumSamples:options.minimumSamples??20,targets:grid}):[];
       eligibility.set(group,result);curves.set(group,curve);
-      for (const point of curve) fitted.set(point.id,point);
+      if(result.status==='eligible')for(const point of lowess(points,{minimumSamples:options.minimumSamples??20}))fitted.set(point.id,point);
     }
     return {curves,fitted,eligibility};
   }
 
-  return {BANDS,COLUMNS,CURVE_ANCHORS,buildCurves,curveEligibility,finite,lowess,qualityFlags,ratingBand,rowToBond,validateSnapshot};
+  return {BANDS,COLUMNS,CURVE_ANCHORS,buildCurves,curveEligibility,finite,fitLowess,lowess,qualityFlags,ratingBand,rowToBond,validateSnapshot};
 });

@@ -34,10 +34,10 @@
 
 ### LUAC 單券資料
 
-正式來源必須是單一工作表、固定 11 欄、靜態與行情雙區塊的純值 `.xlsx`；只要含公式、缺值、非有限數字、重複或不匹配 ID、或混合資料日，就拒絕整批更新。以下命令只輸出精簡公開 contract，私人 audit 必須在 repo 外：
+正式來源必須是單一工作表、固定 11 欄、BICS Level 1 產業、靜態與行情雙區塊的 `.xlsx`。允許無公式純值檔，或恰好一個 BQL 公式且已完成更新、儲存快取值的檔案；其他公式、缺失快取、缺值、非有限數字、重複或不匹配 ID、或混合資料日都拒絕整批更新。瀏覽器無法重新計算 BQL，發布前必須由使用者確認已在 Excel 更新完成並儲存。以下命令只輸出精簡公開 contract，私人 audit 必須在 repo 外：
 
 ```sh
-python3 scripts/extract_luac.py <LUAC純值.xlsx> \
+python3 scripts/extract_luac.py <LUAC.xlsx> \
   --output assets/luac-bonds.json \
   --audit <repo之外>/luac-audit.json
 ```
@@ -51,6 +51,8 @@ Bloomberg Desktop API 僅可在已登入 Terminal 的公司 Windows 電腦做唯
 ```powershell
 python scripts/probe_bloomberg_luac.py --known-security "<approved Bloomberg ID>" --snapshot-output "$env:TEMP\luac-api.json" --compare "$env:TEMP\luac-excel.json"
 ```
+
+網站式診斷可在 repository 根目錄執行 `powershell -File scripts/start_bloomberg_bridge.ps1`。bridge 只綁定 `127.0.0.1:8768`、使用每次啟動的隨機 token，只回傳彙總比對結果，且不呼叫發布 Worker。
 
 診斷只輸出成功狀態、筆數、欄位覆蓋與錯誤分類。完整 universe、唯一 ID、必填欄位 100%，且同工作階段比對達 OAS ≤0.5 bp、Yield ≤0.01 個百分點前，不得接正式更新。
 
